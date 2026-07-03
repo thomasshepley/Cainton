@@ -1,0 +1,34 @@
+[
+  {
+    "label": "The Shepley Family",
+    "guests": ["Thomas Shepley", "Margaret Shepley"]
+  },
+  {
+    "label": "Smith Family",
+    "guests": ["John Smith", "Elizabeth Smith", "Emily Smith"]
+  },
+  {
+    "label": "Robert Johnson & Guest",
+    "guests": ["Robert Johnson", "Guest of Robert Johnson"]
+  },
+  {
+    "label": "The Garcias",
+    "guests": ["Maria Garcia", "Carlos Garcia"]
+  },
+  {
+    "label": "Samantha Lee",
+    "guests": ["Samantha Lee"]
+  },
+  {
+    "label": "The Nguyens",
+    "guests": ["David Nguyen", "Linh Nguyen"]
+  },
+  {
+    "label": "Katherine O'Brien & Michael Chen",
+    "guests": ["Katherine O'Brien", "Michael Chen"]
+  },
+  {
+    "label": "The Williams Family",
+    "guests": ["James Williams", "Patricia Williams", "Zachary Williams"]
+  }
+]

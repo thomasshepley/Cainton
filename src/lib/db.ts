@@ -1,0 +1,297 @@
+import Database from "better-sqlite3";
+import path from "path";
+import fs from "fs";
+
+/**
+ * SQLite storage for the guest list and RSVP responses.
+ * The DB file lives in ./data and is created (and seeded from
+ * data/guests.seed.json) on first run.
+ */
+
+const DATA_DIR = path.join(process.cwd(), "data");
+const DB_PATH = path.join(DATA_DIR, "wedding.db");
+const SEED_PATH = path.join(DATA_DIR, "guests.seed.json");
+
+export interface Guest {
+  id: number;
+  party_id: number;
+  full_name: string;
+}
+
+export interface Party {
+  id: number;
+  label: string;
+}
+
+export interface Response {
+  guest_id: number;
+  attending: number; // 1 = yes, 0 = no
+  meal: string | null;
+  submitted_by: string;
+  submitted_at: string;
+}
+
+export interface PartyComment {
+  party_id: number;
+  comment: string;
+  submitted_at: string;
+}
+
+declare global {
+  // Reuse the connection across Next.js hot reloads in dev
+  var __weddingDb: Database.Database | undefined;
+}
+
+function initDb(): Database.Database {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const db = new Database(DB_PATH);
+  db.pragma("journal_mode = WAL");
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS parties (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      label TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS guests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      party_id INTEGER NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
+      full_name TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS responses (
+      guest_id INTEGER PRIMARY KEY REFERENCES guests(id) ON DELETE CASCADE,
+      attending INTEGER NOT NULL,
+      meal TEXT,
+      submitted_by TEXT NOT NULL,
+      submitted_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS party_comments (
+      party_id INTEGER PRIMARY KEY REFERENCES parties(id) ON DELETE CASCADE,
+      comment TEXT NOT NULL,
+      submitted_at TEXT NOT NULL
+    );
+  `);
+
+  // Seed the guest list on first run
+  const count = db.prepare("SELECT COUNT(*) AS n FROM guests").get() as {
+    n: number;
+  };
+  if (count.n === 0 && fs.existsSync(SEED_PATH)) {
+    const seed = JSON.parse(fs.readFileSync(SEED_PATH, "utf8")) as {
+      label: string;
+      guests: string[];
+    }[];
+    const insertParty = db.prepare("INSERT INTO parties (label) VALUES (?)");
+    const insertGuest = db.prepare(
+      "INSERT INTO guests (party_id, full_name) VALUES (?, ?)"
+    );
+    const tx = db.transaction(() => {
+      for (const party of seed) {
+        const { lastInsertRowid } = insertParty.run(party.label);
+        for (const name of party.guests) {
+          insertGuest.run(lastInsertRowid, name.trim());
+        }
+      }
+    });
+    tx();
+  }
+
+  return db;
+}
+
+export function getDb(): Database.Database {
+  if (!global.__weddingDb) {
+    global.__weddingDb = initDb();
+  }
+  return global.__weddingDb;
+}
+
+// ---------- Guest queries ----------
+
+export function allGuests(): Guest[] {
+  return getDb()
+    .prepare("SELECT id, party_id, full_name FROM guests ORDER BY full_name")
+    .all() as Guest[];
+}
+
+export function partyOf(guestId: number): {
+  party: Party;
+  members: Guest[];
+} | null {
+  const db = getDb();
+  const guest = db
+    .prepare("SELECT id, party_id, full_name FROM guests WHERE id = ?")
+    .get(guestId) as Guest | undefined;
+  if (!guest) return null;
+  const party = db
+    .prepare("SELECT id, label FROM parties WHERE id = ?")
+    .get(guest.party_id) as Party;
+  const members = db
+    .prepare(
+      "SELECT id, party_id, full_name FROM guests WHERE party_id = ? ORDER BY id"
+    )
+    .all(guest.party_id) as Guest[];
+  return { party, members };
+}
+
+export function responsesForParty(partyId: number): Response[] {
+  return getDb()
+    .prepare(
+      `SELECT r.guest_id, r.attending, r.meal, r.submitted_by, r.submitted_at
+       FROM responses r JOIN guests g ON g.id = r.guest_id
+       WHERE g.party_id = ?`
+    )
+    .all(partyId) as Response[];
+}
+
+export function commentForParty(partyId: number): PartyComment | null {
+  return (
+    (getDb()
+      .prepare(
+        "SELECT party_id, comment, submitted_at FROM party_comments WHERE party_id = ?"
+      )
+      .get(partyId) as PartyComment | undefined) ?? null
+  );
+}
+
+export function saveRsvp(input: {
+  partyId: number;
+  submittedBy: string;
+  comment: string;
+  answers: { guestId: number; attending: boolean; meal: string | null }[];
+}): void {
+  const db = getDb();
+  const now = new Date().toISOString();
+  const upsertResponse = db.prepare(`
+    INSERT INTO responses (guest_id, attending, meal, submitted_by, submitted_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(guest_id) DO UPDATE SET
+      attending = excluded.attending,
+      meal = excluded.meal,
+      submitted_by = excluded.submitted_by,
+      submitted_at = excluded.submitted_at
+  `);
+  const upsertComment = db.prepare(`
+    INSERT INTO party_comments (party_id, comment, submitted_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(party_id) DO UPDATE SET
+      comment = excluded.comment,
+      submitted_at = excluded.submitted_at
+  `);
+  const deleteComment = db.prepare(
+    "DELETE FROM party_comments WHERE party_id = ?"
+  );
+  // Only accept answers for guests actually in this party
+  const memberIds = new Set(
+    (
+      db
+        .prepare("SELECT id FROM guests WHERE party_id = ?")
+        .all(input.partyId) as { id: number }[]
+    ).map((r) => r.id)
+  );
+
+  const tx = db.transaction(() => {
+    for (const a of input.answers) {
+      if (!memberIds.has(a.guestId)) continue;
+      upsertResponse.run(
+        a.guestId,
+        a.attending ? 1 : 0,
+        a.attending ? a.meal : null,
+        input.submittedBy,
+        now
+      );
+    }
+    const trimmed = input.comment.trim();
+    if (trimmed) {
+      upsertComment.run(input.partyId, trimmed.slice(0, 2000), now);
+    } else {
+      deleteComment.run(input.partyId);
+    }
+  });
+  tx();
+}
+
+// ---------- Admin queries ----------
+
+export interface AdminRow {
+  guest_id: number;
+  full_name: string;
+  party_id: number;
+  party_label: string;
+  attending: number | null;
+  meal: string | null;
+  submitted_by: string | null;
+  submitted_at: string | null;
+  comment: string | null;
+}
+
+export function adminOverview(): AdminRow[] {
+  return getDb()
+    .prepare(
+      `SELECT g.id AS guest_id, g.full_name, g.party_id, p.label AS party_label,
+              r.attending, r.meal, r.submitted_by, r.submitted_at,
+              c.comment
+       FROM guests g
+       JOIN parties p ON p.id = g.party_id
+       LEFT JOIN responses r ON r.guest_id = g.id
+       LEFT JOIN party_comments c ON c.party_id = g.party_id
+       ORDER BY p.id, g.id`
+    )
+    .all() as AdminRow[];
+}
+
+export function addParty(label: string, guestNames: string[]): void {
+  const db = getDb();
+  const tx = db.transaction(() => {
+    const { lastInsertRowid } = db
+      .prepare("INSERT INTO parties (label) VALUES (?)")
+      .run(label.trim());
+    const insertGuest = db.prepare(
+      "INSERT INTO guests (party_id, full_name) VALUES (?, ?)"
+    );
+    for (const name of guestNames) {
+      const trimmed = name.trim();
+      if (trimmed) insertGuest.run(lastInsertRowid, trimmed);
+    }
+  });
+  tx();
+}
+
+export function deleteParty(partyId: number): void {
+  const db = getDb();
+  const tx = db.transaction(() => {
+    db.prepare(
+      "DELETE FROM responses WHERE guest_id IN (SELECT id FROM guests WHERE party_id = ?)"
+    ).run(partyId);
+    db.prepare("DELETE FROM party_comments WHERE party_id = ?").run(partyId);
+    db.prepare("DELETE FROM guests WHERE party_id = ?").run(partyId);
+    db.prepare("DELETE FROM parties WHERE id = ?").run(partyId);
+  });
+  tx();
+}
+
+export function deleteGuest(guestId: number): void {
+  const db = getDb();
+  const tx = db.transaction(() => {
+    const guest = db
+      .prepare("SELECT party_id FROM guests WHERE id = ?")
+      .get(guestId) as { party_id: number } | undefined;
+    if (!guest) return;
+    db.prepare("DELETE FROM responses WHERE guest_id = ?").run(guestId);
+    db.prepare("DELETE FROM guests WHERE id = ?").run(guestId);
+    const remaining = db
+      .prepare("SELECT COUNT(*) AS n FROM guests WHERE party_id = ?")
+      .get(guest.party_id) as { n: number };
+    if (remaining.n === 0) {
+      db.prepare("DELETE FROM party_comments WHERE party_id = ?").run(
+        guest.party_id
+      );
+      db.prepare("DELETE FROM parties WHERE id = ?").run(guest.party_id);
+    }
+  });
+  tx();
+}
+
+export function addGuestToParty(partyId: number, name: string): void {
+  getDb()
+    .prepare("INSERT INTO guests (party_id, full_name) VALUES (?, ?)")
+    .run(partyId, name.trim());
+}
