@@ -66,7 +66,10 @@ to re-seed from scratch.
   ("Jon Smyth" → "John Smith")
 - **Token alignment** — word order and middle names don't matter
   ("Smith, John" or "John Robert Smith" both work)
-- **A nickname dictionary** — "Liz Smith" finds "Elizabeth Smith"
+- **A nickname dictionary** (~200 names, British-flavoured) — "Liz Smith" finds
+  "Elizabeth Smith", "Pip Clarke" finds "Philippa Clarke"
+- **Surname spelling variants** — Clark/Clarke, Smith/Smyth/Smythe,
+  Stewart/Stuart, Reid/Reed, Davies/Davis, and Mac-/Mc- prefixes fold together
 - **Surname guard** — first-name-only matches don't fire against the wrong family
 
 One clear winner goes straight through; a close call shows a "did you mean?"

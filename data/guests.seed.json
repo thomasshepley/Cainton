@@ -4,31 +4,31 @@
     "guests": ["Thomas Shepley", "Margaret Shepley"]
   },
   {
-    "label": "Smith Family",
-    "guests": ["John Smith", "Elizabeth Smith", "Emily Smith"]
+    "label": "The Clarke Family",
+    "guests": ["Geoffrey Clarke", "Philippa Clarke", "Alfred Clarke"]
   },
   {
-    "label": "Robert Johnson & Guest",
-    "guests": ["Robert Johnson", "Guest of Robert Johnson"]
+    "label": "Alistair MacDonald & Guest",
+    "guests": ["Alistair MacDonald", "Guest of Alistair MacDonald"]
   },
   {
-    "label": "The Garcias",
-    "guests": ["Maria Garcia", "Carlos Garcia"]
-  },
-  {
-    "label": "Samantha Lee",
-    "guests": ["Samantha Lee"]
-  },
-  {
-    "label": "The Nguyens",
-    "guests": ["David Nguyen", "Linh Nguyen"]
+    "label": "The Thompsons",
+    "guests": ["Reginald Thompson", "Gwendolyn Thompson"]
   },
   {
     "label": "Katherine O'Brien & Michael Chen",
     "guests": ["Katherine O'Brien", "Michael Chen"]
   },
   {
-    "label": "The Williams Family",
-    "guests": ["James Williams", "Patricia Williams", "Zachary Williams"]
+    "label": "The Shepherd Family",
+    "guests": ["Rupert Shepherd", "Matilda Shepherd", "Sebastian Shepherd"]
+  },
+  {
+    "label": "Elizabeth Smythe",
+    "guests": ["Elizabeth Smythe"]
+  },
+  {
+    "label": "The Davies Family",
+    "guests": ["Rhys Davies", "Charlotte Davies"]
   }
 ]

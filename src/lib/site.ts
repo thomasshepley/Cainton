@@ -3,7 +3,7 @@
  * Edit these values — no other code changes needed.
  */
 export const site = {
-  coupleNames: "Caitlin & Anton",
+  coupleNames: "Lauren Cain & Aaron Clayton",
   // Short one-liner shown under the names on the splash page
   tagline: "are getting married",
   dateDisplay: "Saturday, June 12, 2027",
