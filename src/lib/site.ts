@@ -14,11 +14,11 @@ export const site = {
   contactEmail: "tom@sheps.me",
   // How each invitation tier is described to guests on the RSVP page
   inviteInfo: {
-    full: "You are warmly invited to the full day — ceremony, wedding breakfast, and evening celebration.",
+    full: "You are warmly invited to the full day — ceremony, lunch, and evening celebration.",
     evening: "You are warmly invited to the evening celebration.",
   },
   /**
-   * The wedding-breakfast menus. Every guest is on the "adult" menu by
+   * The wedding-lunch menus. Every guest is on the "adult" menu by
    * default; they (or you, from the admin panel) can switch them to a
    * different menu, and they then choose a dish from that menu.
    * Meal ids must be unique across ALL menus.

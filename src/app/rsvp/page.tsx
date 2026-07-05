@@ -498,15 +498,15 @@ export default function RsvpPage() {
           <div className="mt-10">
             <label className="mb-2 block text-center text-[0.7rem] tracking-[0.3em] uppercase text-ink-soft">
               {anyAttending
-                ? "Dietary needs or a note (optional)"
-                : "A note for the couple (optional)"}
+                ? "Leave a note (optional)"
+                : "Leave a note (optional)"}
             </label>
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={4}
               maxLength={2000}
-              placeholder="Allergies, wheelchair access, babysitter needs, well wishes…"
+              placeholder="Allergies, wheelchair access, well wishes…"
               className="w-full border border-ink-soft/25 bg-white/60 p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-ink-soft/40 focus:border-gold"
             />
           </div>
