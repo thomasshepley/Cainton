@@ -341,3 +341,34 @@ export function addGuestToParty(partyId: number, name: string): void {
     .prepare("INSERT INTO guests (party_id, full_name) VALUES (?, ?)")
     .run(partyId, name.trim());
 }
+
+/**
+ * Admin override of a single guest's response.
+ * attending null clears the response entirely (back to "no response");
+ * meal is only stored for attending guests.
+ */
+export function setGuestResponse(
+  guestId: number,
+  attending: boolean | null,
+  meal: string | null
+): boolean {
+  const db = getDb();
+  const guest = db
+    .prepare("SELECT id FROM guests WHERE id = ?")
+    .get(guestId) as { id: number } | undefined;
+  if (!guest) return false;
+  if (attending === null) {
+    db.prepare("DELETE FROM responses WHERE guest_id = ?").run(guestId);
+    return true;
+  }
+  db.prepare(
+    `INSERT INTO responses (guest_id, attending, meal, submitted_by, submitted_at)
+     VALUES (?, ?, ?, 'Admin', ?)
+     ON CONFLICT(guest_id) DO UPDATE SET
+       attending = excluded.attending,
+       meal = excluded.meal,
+       submitted_by = excluded.submitted_by,
+       submitted_at = excluded.submitted_at`
+  ).run(guestId, attending ? 1 : 0, attending ? meal : null, new Date().toISOString());
+  return true;
+}

@@ -286,16 +286,64 @@ export default function AdminPage() {
                     >
                       <td className="py-2 pr-4">{r.full_name}</td>
                       <td className="py-2 pr-4">
-                        {r.attending === null ? (
-                          <span className="text-ink-soft/60">No response</span>
-                        ) : r.attending === 1 ? (
-                          <span className="text-sage-dark">✓ Attending</span>
-                        ) : (
-                          <span className="text-ink-soft">✗ Declined</span>
-                        )}
+                        <select
+                          value={
+                            r.attending === null
+                              ? "none"
+                              : r.attending === 1
+                                ? "yes"
+                                : "no"
+                          }
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            action({
+                              action: "setResponse",
+                              guestId: r.guest_id,
+                              attending:
+                                v === "none" ? null : v === "yes",
+                              // keep the current meal when still attending
+                              meal: v === "yes" ? r.meal : null,
+                            });
+                          }}
+                          disabled={busy}
+                          className={`border border-ink-soft/25 bg-white px-2 py-1 text-sm outline-none focus:border-gold ${
+                            r.attending === null
+                              ? "text-ink-soft/60"
+                              : r.attending === 1
+                                ? "text-sage-dark"
+                                : "text-ink-soft"
+                          }`}
+                        >
+                          <option value="none">No response</option>
+                          <option value="yes">✓ Attending</option>
+                          <option value="no">✗ Declined</option>
+                        </select>
                       </td>
-                      <td className="py-2 pr-4 text-ink-soft">
-                        {r.meal ? (MEAL_LABELS.get(r.meal) ?? r.meal) : "—"}
+                      <td className="py-2 pr-4">
+                        {r.attending === 1 && r.invite_type === "full" ? (
+                          <select
+                            value={r.meal ?? ""}
+                            onChange={(e) =>
+                              action({
+                                action: "setResponse",
+                                guestId: r.guest_id,
+                                attending: true,
+                                meal: e.target.value || null,
+                              })
+                            }
+                            disabled={busy}
+                            className="border border-ink-soft/25 bg-white px-2 py-1 text-sm text-ink-soft outline-none focus:border-gold"
+                          >
+                            <option value="">No meal chosen</option>
+                            {site.mealOptions.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-ink-soft">—</span>
+                        )}
                       </td>
                       <td className="py-2 text-right">
                         <button

@@ -4,8 +4,12 @@ import {
   addGuestToParty,
   deleteGuest,
   deleteParty,
+  setGuestResponse,
 } from "@/lib/db";
 import { isAdmin } from "@/lib/adminAuth";
+import { site } from "@/lib/site";
+
+const VALID_MEALS = new Set<string>(site.mealOptions.map((m) => m.id));
 
 /**
  * Admin guest-list management.
@@ -13,6 +17,7 @@ import { isAdmin } from "@/lib/adminAuth";
  * POST { action: "addGuest", partyId, name }
  * POST { action: "deleteGuest", guestId }
  * POST { action: "deleteParty", partyId }
+ * POST { action: "setResponse", guestId, attending: true|false|null, meal }
  */
 export async function POST(req: NextRequest) {
   if (!isAdmin(req)) {
@@ -60,6 +65,22 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Invalid request" }, { status: 400 });
       }
       deleteGuest(guestId);
+      return NextResponse.json({ ok: true });
+    }
+    if (action === "setResponse") {
+      const guestId = Number(body.guestId);
+      if (!Number.isInteger(guestId) || guestId <= 0) {
+        return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+      }
+      const attending =
+        body.attending === true ? true : body.attending === false ? false : null;
+      const meal =
+        typeof body.meal === "string" && VALID_MEALS.has(body.meal)
+          ? body.meal
+          : null;
+      if (!setGuestResponse(guestId, attending, meal)) {
+        return NextResponse.json({ error: "Guest not found" }, { status: 404 });
+      }
       return NextResponse.json({ ok: true });
     }
     if (action === "deleteParty") {
