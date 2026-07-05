@@ -223,7 +223,7 @@ export default function AdminPage() {
         >
           <h1 className="font-display text-4xl">Admin</h1>
           <p className="mt-2 text-sm text-ink-soft">
-            {site.coupleNames} — wedding dashboard
+            {site.coupleNames} — Wedding Dashboard
           </p>
           <input
             type="password"
@@ -266,7 +266,7 @@ export default function AdminPage() {
       {/* Header */}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl sm:text-4xl">Wedding dashboard</h1>
+          <h1 className="font-display text-3xl sm:text-4xl">Wedding Dashboard</h1>
           <p className="mt-1 text-xs text-ink-soft sm:text-sm">
             {site.coupleNames} · {site.dateDisplay}
           </p>
