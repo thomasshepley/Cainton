@@ -20,11 +20,12 @@ export async function GET(req: NextRequest) {
   );
   const rows = adminOverview();
   const header =
-    "Guest,Party,Status,Meal,Submitted By,Submitted At,Party Comment";
+    "Guest,Party,Invitation,Status,Meal,Submitted By,Submitted At,Party Comment,Song Request";
   const lines = rows.map((r) =>
     [
       r.full_name,
       r.party_label,
+      r.invite_type === "evening" ? "Evening only" : "Full day",
       r.attending === null
         ? "No response"
         : r.attending === 1
@@ -34,6 +35,7 @@ export async function GET(req: NextRequest) {
       r.submitted_by ?? "",
       r.submitted_at ?? "",
       r.comment ?? "",
+      r.song_request ?? "",
     ]
       .map(csvEscape)
       .join(",")

@@ -25,10 +25,12 @@
   },
   {
     "label": "Elizabeth Smythe",
-    "guests": ["Elizabeth Smythe"]
+    "guests": ["Elizabeth Smythe"],
+    "invite": "evening"
   },
   {
     "label": "The Davies Family",
-    "guests": ["Rhys Davies", "Charlotte Davies"]
+    "guests": ["Rhys Davies", "Charlotte Davies"],
+    "invite": "evening"
   }
 ]

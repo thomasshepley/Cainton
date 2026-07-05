@@ -9,11 +9,13 @@ interface AdminRow {
   full_name: string;
   party_id: number;
   party_label: string;
+  invite_type: "full" | "evening";
   attending: number | null;
   meal: string | null;
   submitted_by: string | null;
   submitted_at: string | null;
   comment: string | null;
+  song_request: string | null;
 }
 
 const MEAL_LABELS = new Map<string, string>(
@@ -30,6 +32,7 @@ export default function AdminPage() {
   // New party form
   const [newLabel, setNewLabel] = useState("");
   const [newGuests, setNewGuests] = useState("");
+  const [newInvite, setNewInvite] = useState<"full" | "evening">("full");
 
   const load = useCallback(
     async (adminKey: string) => {
@@ -250,7 +253,20 @@ export default function AdminPage() {
               className="border border-ink-soft/20 bg-white/60 p-5"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-display text-xl">{p.label}</h3>
+                <h3 className="font-display flex items-center gap-3 text-xl">
+                  {p.label}
+                  <span
+                    className={`rounded-full border px-2.5 py-0.5 text-[0.6rem] tracking-[0.15em] uppercase ${
+                      p.rows[0]?.invite_type === "evening"
+                        ? "border-gold/60 text-gold"
+                        : "border-sage-dark/40 text-sage-dark"
+                    }`}
+                  >
+                    {p.rows[0]?.invite_type === "evening"
+                      ? "Evening only"
+                      : "Full day"}
+                  </span>
+                </h3>
                 <button
                   onClick={() => {
                     if (confirm(`Delete party "${p.label}" and all its guests?`))
@@ -299,10 +315,13 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
-              {p.rows[0]?.comment && (
-                <p className="mt-3 border-t border-ink-soft/10 pt-3 text-sm italic text-ink-soft">
-                  “{p.rows[0].comment}”
-                </p>
+              {(p.rows[0]?.comment || p.rows[0]?.song_request) && (
+                <div className="mt-3 space-y-1 border-t border-ink-soft/10 pt-3 text-sm text-ink-soft">
+                  {p.rows[0]?.comment && <p className="italic">“{p.rows[0].comment}”</p>}
+                  {p.rows[0]?.song_request && (
+                    <p>🎵 Song request: {p.rows[0].song_request}</p>
+                  )}
+                </div>
               )}
               <AddGuestInline
                 onAdd={(name) =>
@@ -329,9 +348,15 @@ export default function AdminPage() {
               .map((g) => g.trim())
               .filter(Boolean);
             if (!newLabel.trim() || guests.length === 0) return;
-            action({ action: "addParty", label: newLabel.trim(), guests });
+            action({
+              action: "addParty",
+              label: newLabel.trim(),
+              guests,
+              inviteType: newInvite,
+            });
             setNewLabel("");
             setNewGuests("");
+            setNewInvite("full");
           }}
           className="mt-4 grid gap-3 sm:grid-cols-2"
         >
@@ -348,10 +373,18 @@ export default function AdminPage() {
             rows={3}
             className="border border-ink-soft/25 bg-white px-3 py-2 text-sm outline-none focus:border-gold sm:row-span-2"
           />
+          <select
+            value={newInvite}
+            onChange={(e) => setNewInvite(e.target.value as "full" | "evening")}
+            className="border border-ink-soft/25 bg-white px-3 py-2 text-sm outline-none focus:border-gold"
+          >
+            <option value="full">Invited to the full day</option>
+            <option value="evening">Invited to the evening only</option>
+          </select>
           <button
             type="submit"
             disabled={busy}
-            className="border border-sage-dark bg-sage-dark px-6 py-2 text-xs tracking-[0.2em] uppercase text-cream transition-all enabled:hover:bg-transparent enabled:hover:text-sage-dark disabled:opacity-40 sm:self-start"
+            className="border border-sage-dark bg-sage-dark px-6 py-2 text-xs tracking-[0.2em] uppercase text-cream transition-all enabled:hover:bg-transparent enabled:hover:text-sage-dark disabled:opacity-40 sm:justify-self-start"
           >
             Add party
           </button>

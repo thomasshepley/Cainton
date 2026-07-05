@@ -96,9 +96,14 @@ RSVP together. Each party has a label and its guests:
 ```json
 {
   "label": "The Smith Family",
-  "guests": ["John Smith", "Elizabeth Smith", "Emily Smith"]
+  "guests": ["John Smith", "Elizabeth Smith", "Emily Smith"],
+  "invite": "evening"
 }
 ```
+
+`"invite"` is optional: omit it (or use `"full"`) for guests invited to the
+whole day; `"evening"` marks evening-reception-only parties. Evening guests
+see that on their RSVP and skip the meal-choice step (no wedding breakfast).
 
 The seed file is only read when the database is empty (first run). After
 that, manage guests from the admin dashboard — or delete `data/wedding.db`

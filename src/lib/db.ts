@@ -18,9 +18,13 @@ export interface Guest {
   full_name: string;
 }
 
+/** 'full' = daytime + evening; 'evening' = evening reception only */
+export type InviteType = "full" | "evening";
+
 export interface Party {
   id: number;
   label: string;
+  invite_type: InviteType;
 }
 
 export interface Response {
@@ -34,6 +38,7 @@ export interface Response {
 export interface PartyComment {
   party_id: number;
   comment: string;
+  song_request: string;
   submitted_at: string;
 }
 
@@ -49,7 +54,8 @@ function initDb(): Database.Database {
   db.exec(`
     CREATE TABLE IF NOT EXISTS parties (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      label TEXT NOT NULL
+      label TEXT NOT NULL,
+      invite_type TEXT NOT NULL DEFAULT 'full'
     );
     CREATE TABLE IF NOT EXISTS guests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,9 +72,28 @@ function initDb(): Database.Database {
     CREATE TABLE IF NOT EXISTS party_comments (
       party_id INTEGER PRIMARY KEY REFERENCES parties(id) ON DELETE CASCADE,
       comment TEXT NOT NULL,
+      song_request TEXT NOT NULL DEFAULT '',
       submitted_at TEXT NOT NULL
     );
   `);
+
+  // Migrations for databases created before these columns existed
+  const partyCols = db.prepare("PRAGMA table_info(parties)").all() as {
+    name: string;
+  }[];
+  if (!partyCols.some((c) => c.name === "invite_type")) {
+    db.exec(
+      "ALTER TABLE parties ADD COLUMN invite_type TEXT NOT NULL DEFAULT 'full'"
+    );
+  }
+  const commentCols = db.prepare("PRAGMA table_info(party_comments)").all() as {
+    name: string;
+  }[];
+  if (!commentCols.some((c) => c.name === "song_request")) {
+    db.exec(
+      "ALTER TABLE party_comments ADD COLUMN song_request TEXT NOT NULL DEFAULT ''"
+    );
+  }
 
   // Seed the guest list on first run
   const count = db.prepare("SELECT COUNT(*) AS n FROM guests").get() as {
@@ -78,14 +103,18 @@ function initDb(): Database.Database {
     const seed = JSON.parse(fs.readFileSync(SEED_PATH, "utf8")) as {
       label: string;
       guests: string[];
+      invite?: string;
     }[];
-    const insertParty = db.prepare("INSERT INTO parties (label) VALUES (?)");
+    const insertParty = db.prepare(
+      "INSERT INTO parties (label, invite_type) VALUES (?, ?)"
+    );
     const insertGuest = db.prepare(
       "INSERT INTO guests (party_id, full_name) VALUES (?, ?)"
     );
     const tx = db.transaction(() => {
       for (const party of seed) {
-        const { lastInsertRowid } = insertParty.run(party.label);
+        const inviteType = party.invite === "evening" ? "evening" : "full";
+        const { lastInsertRowid } = insertParty.run(party.label, inviteType);
         for (const name of party.guests) {
           insertGuest.run(lastInsertRowid, name.trim());
         }
@@ -122,7 +151,7 @@ export function partyOf(guestId: number): {
     .get(guestId) as Guest | undefined;
   if (!guest) return null;
   const party = db
-    .prepare("SELECT id, label FROM parties WHERE id = ?")
+    .prepare("SELECT id, label, invite_type FROM parties WHERE id = ?")
     .get(guest.party_id) as Party;
   const members = db
     .prepare(
@@ -146,9 +175,17 @@ export function commentForParty(partyId: number): PartyComment | null {
   return (
     (getDb()
       .prepare(
-        "SELECT party_id, comment, submitted_at FROM party_comments WHERE party_id = ?"
+        "SELECT party_id, comment, song_request, submitted_at FROM party_comments WHERE party_id = ?"
       )
       .get(partyId) as PartyComment | undefined) ?? null
+  );
+}
+
+export function getParty(partyId: number): Party | null {
+  return (
+    (getDb()
+      .prepare("SELECT id, label, invite_type FROM parties WHERE id = ?")
+      .get(partyId) as Party | undefined) ?? null
   );
 }
 
@@ -156,6 +193,7 @@ export function saveRsvp(input: {
   partyId: number;
   submittedBy: string;
   comment: string;
+  songRequest: string;
   answers: { guestId: number; attending: boolean; meal: string | null }[];
 }): void {
   const db = getDb();
@@ -170,10 +208,11 @@ export function saveRsvp(input: {
       submitted_at = excluded.submitted_at
   `);
   const upsertComment = db.prepare(`
-    INSERT INTO party_comments (party_id, comment, submitted_at)
-    VALUES (?, ?, ?)
+    INSERT INTO party_comments (party_id, comment, song_request, submitted_at)
+    VALUES (?, ?, ?, ?)
     ON CONFLICT(party_id) DO UPDATE SET
       comment = excluded.comment,
+      song_request = excluded.song_request,
       submitted_at = excluded.submitted_at
   `);
   const deleteComment = db.prepare(
@@ -199,9 +238,10 @@ export function saveRsvp(input: {
         now
       );
     }
-    const trimmed = input.comment.trim();
-    if (trimmed) {
-      upsertComment.run(input.partyId, trimmed.slice(0, 2000), now);
+    const comment = input.comment.trim().slice(0, 2000);
+    const song = input.songRequest.trim().slice(0, 200);
+    if (comment || song) {
+      upsertComment.run(input.partyId, comment, song, now);
     } else {
       deleteComment.run(input.partyId);
     }
@@ -216,19 +256,21 @@ export interface AdminRow {
   full_name: string;
   party_id: number;
   party_label: string;
+  invite_type: InviteType;
   attending: number | null;
   meal: string | null;
   submitted_by: string | null;
   submitted_at: string | null;
   comment: string | null;
+  song_request: string | null;
 }
 
 export function adminOverview(): AdminRow[] {
   return getDb()
     .prepare(
       `SELECT g.id AS guest_id, g.full_name, g.party_id, p.label AS party_label,
-              r.attending, r.meal, r.submitted_by, r.submitted_at,
-              c.comment
+              p.invite_type, r.attending, r.meal, r.submitted_by, r.submitted_at,
+              c.comment, c.song_request
        FROM guests g
        JOIN parties p ON p.id = g.party_id
        LEFT JOIN responses r ON r.guest_id = g.id
@@ -238,12 +280,16 @@ export function adminOverview(): AdminRow[] {
     .all() as AdminRow[];
 }
 
-export function addParty(label: string, guestNames: string[]): void {
+export function addParty(
+  label: string,
+  guestNames: string[],
+  inviteType: InviteType = "full"
+): void {
   const db = getDb();
   const tx = db.transaction(() => {
     const { lastInsertRowid } = db
-      .prepare("INSERT INTO parties (label) VALUES (?)")
-      .run(label.trim());
+      .prepare("INSERT INTO parties (label, invite_type) VALUES (?, ?)")
+      .run(label.trim(), inviteType);
     const insertGuest = db.prepare(
       "INSERT INTO guests (party_id, full_name) VALUES (?, ?)"
     );

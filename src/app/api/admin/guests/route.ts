@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      addParty(label, guests);
+      const inviteType = body.inviteType === "evening" ? "evening" : "full";
+      addParty(label, guests, inviteType);
       return NextResponse.json({ ok: true });
     }
     if (action === "addGuest") {

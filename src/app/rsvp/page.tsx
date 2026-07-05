@@ -15,8 +15,10 @@ interface PartyMember {
 interface Party {
   id: number;
   label: string;
+  inviteType: "full" | "evening";
   members: PartyMember[];
   previousComment: string | null;
+  previousSongRequest: string | null;
 }
 
 interface Candidate {
@@ -104,6 +106,7 @@ export default function RsvpPage() {
   const [matchedName, setMatchedName] = useState("");
   const [answers, setAnswers] = useState<Answers>({});
   const [comment, setComment] = useState("");
+  const [songRequest, setSongRequest] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -121,6 +124,7 @@ export default function RsvpPage() {
     }
     setAnswers(initial);
     setComment(p.previousComment ?? "");
+    setSongRequest(p.previousSongRequest ?? "");
     setStep("attendance");
   }
 
@@ -184,9 +188,12 @@ export default function RsvpPage() {
   const attendingMembers =
     party?.members.filter((m) => answers[m.id]?.attending === true) ?? [];
   const anyAttending = attendingMembers.length > 0;
-  const allMealsChosen = attendingMembers.every(
-    (m) => answers[m.id]?.meal !== null
-  );
+  // Meal choices only apply to full-day guests (the sit-down wedding
+  // breakfast) — evening guests go straight to the note step
+  const mealsApply = anyAttending && party?.inviteType === "full";
+  const allMealsChosen =
+    !mealsApply ||
+    attendingMembers.every((m) => answers[m.id]?.meal !== null);
 
   async function submit() {
     if (!party || busy) return;
@@ -200,6 +207,7 @@ export default function RsvpPage() {
           partyId: party.id,
           submittedBy: matchedName || nameInput,
           comment,
+          songRequest,
           answers: party.members.map((m) => ({
             guestId: m.id,
             attending: answers[m.id]?.attending === true,
@@ -329,7 +337,10 @@ export default function RsvpPage() {
               below and you&apos;re welcome to update them.
             </p>
           )}
-          <p className="text-center text-sm leading-relaxed text-ink-soft">
+          <p className="border border-sage-dark/30 bg-sage-light px-4 py-3 text-center text-sm leading-relaxed text-sage-dark">
+            {site.inviteInfo[party.inviteType]}
+          </p>
+          <p className="mt-6 text-center text-sm leading-relaxed text-ink-soft">
             Please let us know who will be joining us on {site.dateDisplay}.
           </p>
           <div className="mt-8 space-y-5">
@@ -401,9 +412,15 @@ export default function RsvpPage() {
       {step === "details" && party && (
         <StepShell
           eyebrow={anyAttending ? "Wonderful!" : "We'll miss you"}
-          title={anyAttending ? "Choose your meals" : "Leave us a note?"}
+          title={
+            mealsApply
+              ? "Choose your meals"
+              : anyAttending
+                ? "One last thing"
+                : "Leave us a note?"
+          }
         >
-          {anyAttending ? (
+          {mealsApply ? (
             <div className="space-y-8">
               {attendingMembers.map((m) => (
                 <div key={m.id}>
@@ -423,17 +440,26 @@ export default function RsvpPage() {
                               [m.id]: { ...prev[m.id], meal: meal.id },
                             }))
                           }
-                          className={`block w-full border p-4 text-left transition-all duration-200 ${
+                          className={`relative block w-full border p-4 text-left transition-all duration-200 ${
                             selected
                               ? "border-sage-dark bg-sage-light"
                               : "border-ink-soft/20 bg-white/60 hover:border-sage-dark/60"
                           }`}
                         >
-                          <span className="font-display block text-lg">
+                          {meal.vegetarian && (
+                            <span
+                              title="Vegetarian"
+                              aria-label="Vegetarian"
+                              className="absolute top-2.5 right-2.5 flex h-6 w-6 items-center justify-center rounded-full border border-sage-dark text-[0.7rem] font-medium text-sage-dark"
+                            >
+                              V
+                            </span>
+                          )}
+                          <span className="font-display block pr-8 text-lg">
                             {selected ? "✓ " : ""}
                             {meal.label}
                           </span>
-                          <span className="mt-1 block text-xs leading-relaxed text-ink-soft">
+                          <span className="mt-1 block pr-8 text-xs leading-relaxed text-ink-soft">
                             {meal.description}
                           </span>
                         </button>
@@ -443,6 +469,11 @@ export default function RsvpPage() {
                 </div>
               ))}
             </div>
+          ) : anyAttending ? (
+            <p className="text-center text-sm leading-relaxed text-ink-soft">
+              We can&apos;t wait to celebrate with you in the evening! If
+              there&apos;s anything we should know, leave us a note below.
+            </p>
           ) : (
             <p className="text-center text-sm leading-relaxed text-ink-soft">
               We&apos;re so sorry you can&apos;t make it — you&apos;ll be
@@ -453,7 +484,7 @@ export default function RsvpPage() {
           <div className="mt-10">
             <label className="mb-2 block text-center text-[0.7rem] tracking-[0.3em] uppercase text-ink-soft">
               {anyAttending
-                ? "Dietary needs, song requests, or a note (optional)"
+                ? "Dietary needs or a note (optional)"
                 : "A note for the couple (optional)"}
             </label>
             <textarea
@@ -466,18 +497,31 @@ export default function RsvpPage() {
             />
           </div>
 
+          {anyAttending && (
+            <div className="mt-6">
+              <label className="mb-2 block text-center text-[0.7rem] tracking-[0.3em] uppercase text-ink-soft">
+                Song request (optional)
+              </label>
+              <input
+                type="text"
+                value={songRequest}
+                onChange={(e) => setSongRequest(e.target.value)}
+                maxLength={200}
+                placeholder="What will get you on the dance floor?"
+                className="w-full border border-ink-soft/25 bg-white/60 px-4 py-3 text-sm outline-none transition-colors placeholder:text-ink-soft/40 focus:border-gold"
+              />
+            </div>
+          )}
+
           {error && (
             <p className="mt-4 text-center text-sm text-red-700">{error}</p>
           )}
 
           <div className="mt-8">
-            <PrimaryButton
-              onClick={submit}
-              disabled={busy || (anyAttending && !allMealsChosen)}
-            >
+            <PrimaryButton onClick={submit} disabled={busy || !allMealsChosen}>
               {busy ? "Submitting…" : "Submit RSVP"}
             </PrimaryButton>
-            {anyAttending && !allMealsChosen && (
+            {!allMealsChosen && (
               <p className="mt-3 text-center text-xs text-ink-soft">
                 Please choose a meal for each attending guest.
               </p>

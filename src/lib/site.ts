@@ -12,26 +12,35 @@ export const site = {
   rsvpDeadlineDisplay: "May 1, 2027",
   // Email shown to guests who can't find their name
   contactEmail: "tom@sheps.me",
+  // How each invitation tier is described to guests on the RSVP page
+  inviteInfo: {
+    full: "You are warmly invited to the full day — ceremony, wedding breakfast, and evening celebration.",
+    evening: "You are warmly invited to the evening celebration.",
+  },
   mealOptions: [
     {
       id: "beef",
       label: "Braised Short Rib",
       description: "Red wine braised beef, whipped potatoes, seasonal vegetables",
+      vegetarian: false,
     },
     {
       id: "chicken",
       label: "Herb Roasted Chicken",
       description: "Lemon-thyme jus, roasted fingerlings, haricots verts",
+      vegetarian: false,
     },
     {
       id: "fish",
       label: "Pan-Seared Salmon",
       description: "Citrus beurre blanc, wild rice pilaf, grilled asparagus",
+      vegetarian: false,
     },
     {
       id: "vegetarian",
       label: "Wild Mushroom Risotto",
-      description: "Parmesan, truffle oil, crispy sage (vegetarian)",
+      description: "Parmesan, truffle oil, crispy sage",
+      vegetarian: true,
     },
   ],
 } as const;

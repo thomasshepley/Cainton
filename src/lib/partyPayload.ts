@@ -10,6 +10,7 @@ export function buildPartyPayload(guestId: number) {
   return {
     id: result.party.id,
     label: result.party.label,
+    inviteType: result.party.invite_type,
     members: result.members.map((m) => {
       const r = responseByGuest.get(m.id);
       return {
@@ -19,5 +20,6 @@ export function buildPartyPayload(guestId: number) {
       };
     }),
     previousComment: comment?.comment ?? null,
+    previousSongRequest: comment?.song_request || null,
   };
 }
