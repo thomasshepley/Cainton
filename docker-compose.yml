@@ -11,3 +11,31 @@ services:
       # container rebuilds and restarts
       - ./data:/app/data
     restart: unless-stopped
+
+  # Optional: expose the site to the internet with a free Cloudflare
+  # quick tunnel (random URL, no account needed).
+  # Start:            docker compose --profile public up -d
+  # Get the URL:      docker compose logs tunnel | grep trycloudflare
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["public"]
+    command: tunnel --no-autoupdate --url http://wedding-rsvp:3000
+    depends_on:
+      - wedding-rsvp
+    restart: unless-stopped
+
+  # Optional: permanent public URL on your own domain via a named
+  # Cloudflare tunnel (free account required — create the tunnel in the
+  # Cloudflare Zero Trust dashboard, point it at
+  # http://wedding-rsvp:3000, and put its token in .env as TUNNEL_TOKEN).
+  # Start:  docker compose --profile domain up -d
+  tunnel-named:
+    image: cloudflare/cloudflared:latest
+    profiles: ["domain"]
+    command: tunnel --no-autoupdate run
+    environment:
+      # Required for this profile — set it in .env
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN:-}
+    depends_on:
+      - wedding-rsvp
+    restart: unless-stopped

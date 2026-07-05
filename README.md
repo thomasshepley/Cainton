@@ -67,17 +67,38 @@ docker compose up -d --build # rebuild after changing code/config
 
 - **Same Wi-Fi/LAN**: they can visit `http://<your-PC's-IP>:3000`
   (find it with `ipconfig` on Windows / `ip addr` on Linux / `ifconfig` on Mac).
-- **From anywhere (to show your sister, or for real guests)**: put a tunnel in
-  front rather than opening router ports. Easiest options:
-  - [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) —
-    free, custom domain support: `cloudflared tunnel --url http://localhost:3000`
-    gives you a public HTTPS URL in one command.
-  - [Tailscale](https://tailscale.com/) `tailscale funnel 3000`, or
-    [ngrok](https://ngrok.com/) `ngrok http 3000`.
 
-  For the real invitations, a Cloudflare Tunnel with a named domain (e.g.
-  `rsvp.yourdomain.com`) is the most guest-friendly — free tunnel URLs are
-  random strings that change on restart.
+- **From anywhere — quick demo** (showing someone the site): a Cloudflare
+  quick tunnel is built into the compose file. No account needed:
+
+  ```bash
+  docker compose --profile public up -d
+  docker compose logs tunnel
+  ```
+
+  The logs contain your public HTTPS URL (`https://<random-words>.trycloudflare.com`)
+  — send it to anyone. The URL changes every time the tunnel restarts, and
+  quick tunnels are best-effort, so use this for demos rather than the real
+  invitations. Stop sharing with `docker compose --profile public down`
+  (add `up -d` after to keep the site running locally).
+
+- **From anywhere — permanent URL** (for the real invitations): create a free
+  [Cloudflare account](https://dash.cloudflare.com/), add your domain, then in
+  Zero Trust → Networks → Tunnels create a tunnel pointing at
+  `http://wedding-rsvp:3000`, and put its token in `.env` as
+  `TUNNEL_TOKEN=...`. Then:
+
+  ```bash
+  docker compose --profile domain up -d
+  ```
+
+  Guests get a stable `https://rsvp.yourdomain.com` that survives restarts.
+  (Tailscale `tailscale funnel 3000` or ngrok `ngrok http 3000` work too if
+  you already use them.)
+
+**Before making the site public**: set a strong `ADMIN_PASSWORD` in `.env` —
+the `/admin` dashboard is reachable by anyone who has the URL and guesses the
+password.
 
 ## Customizing
 
