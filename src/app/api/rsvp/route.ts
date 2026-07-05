@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getParty, saveRsvp } from "@/lib/db";
-import { site } from "@/lib/site";
-
-const VALID_MEALS = new Set<string>(site.mealOptions.map((m) => m.id));
+import { getParty, guestsForParty, saveRsvp } from "@/lib/db";
+import { DEFAULT_MENU, MENU_MEALS } from "@/lib/site";
 
 /**
  * POST an RSVP for a whole party.
@@ -11,7 +9,10 @@ const VALID_MEALS = new Set<string>(site.mealOptions.map((m) => m.id));
  *   answers: [{ guestId, attending, meal }]
  * }
  * Meal choices apply to full-day parties only (the sit-down wedding
- * breakfast); evening-only guests never pick a meal.
+ * breakfast); evening-only guests never pick a meal. Each guest's meal
+ * must come from the menu the couple assigned them (adult by default;
+ * vegetarian/coeliac/children set via the admin dashboard) — guests
+ * cannot switch menus themselves.
  */
 export async function POST(req: NextRequest) {
   let body: {
@@ -48,6 +49,10 @@ export async function POST(req: NextRequest) {
   }
 
   const mealRequired = party.invite_type === "full";
+  // Menus are assigned server-side (guests table), never by the client
+  const guestMenus = new Map(
+    guestsForParty(partyId).map((g) => [g.id, g.menu])
+  );
   const answers: { guestId: number; attending: boolean; meal: string | null }[] =
     [];
   for (const raw of body.answers as unknown[]) {
@@ -59,7 +64,9 @@ export async function POST(req: NextRequest) {
     const attending = a.attending === true;
     let meal: string | null = null;
     if (attending && mealRequired) {
-      if (typeof a.meal !== "string" || !VALID_MEALS.has(a.meal)) {
+      const menu = guestMenus.get(guestId) ?? DEFAULT_MENU;
+      const menuMeals = MENU_MEALS.get(menu) ?? MENU_MEALS.get(DEFAULT_MENU);
+      if (typeof a.meal !== "string" || !menuMeals?.has(a.meal)) {
         return NextResponse.json(
           { error: "Please choose a meal for each attending guest." },
           { status: 400 }

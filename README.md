@@ -104,7 +104,7 @@ password.
 
 | What | Where |
 | --- | --- |
-| Couple names, date, venue, deadline, contact email, meal options | `src/lib/site.ts` |
+| Couple names, date, venue, deadline, contact email, menus & dishes | `src/lib/site.ts` |
 | Guest list (initial seed) | `data/guests.seed.json` |
 | Colors & fonts | `src/app/globals.css` |
 | Admin password | `.env.local` → `ADMIN_PASSWORD` (see `.env.example`) |
@@ -125,6 +125,17 @@ RSVP together. Each party has a label and its guests:
 `"invite"` is optional: omit it (or use `"full"`) for guests invited to the
 whole day; `"evening"` marks evening-reception-only parties. Evening guests
 see that on their RSVP and skip the meal-choice step (no wedding breakfast).
+You can also switch a party between full day and evening at any time from
+the admin dashboard.
+
+### Menus
+
+There are four wedding-breakfast menus, defined in `src/lib/site.ts`:
+Standard (default), Vegetarian, Coeliac, and Children's. Every guest starts
+on the Standard menu; assign a different menu per guest from the admin
+dashboard (guests cannot switch menus themselves). On the RSVP page each
+guest picks a dish from their assigned menu, and the dashboard's meal
+counts are grouped by menu for the caterer.
 
 The seed file is only read when the database is empty (first run). After
 that, manage guests from the admin dashboard — or delete `data/wedding.db`

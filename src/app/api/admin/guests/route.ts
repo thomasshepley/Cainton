@@ -5,11 +5,10 @@ import {
   deleteGuest,
   deleteParty,
   setGuestResponse,
+  setPartyInviteType,
 } from "@/lib/db";
 import { isAdmin } from "@/lib/adminAuth";
-import { site } from "@/lib/site";
-
-const VALID_MEALS = new Set<string>(site.mealOptions.map((m) => m.id));
+import { MENU_IDS, MENU_MEALS } from "@/lib/site";
 
 /**
  * Admin guest-list management.
@@ -17,7 +16,8 @@ const VALID_MEALS = new Set<string>(site.mealOptions.map((m) => m.id));
  * POST { action: "addGuest", partyId, name }
  * POST { action: "deleteGuest", guestId }
  * POST { action: "deleteParty", partyId }
- * POST { action: "setResponse", guestId, attending: true|false|null, meal }
+ * POST { action: "setResponse", guestId, attending: true|false|null, meal, menu }
+ * POST { action: "setInviteType", partyId, inviteType: "full"|"evening" }
  */
 export async function POST(req: NextRequest) {
   if (!isAdmin(req)) {
@@ -74,12 +74,32 @@ export async function POST(req: NextRequest) {
       }
       const attending =
         body.attending === true ? true : body.attending === false ? false : null;
+      const menu =
+        typeof body.menu === "string" && MENU_IDS.has(body.menu)
+          ? body.menu
+          : undefined;
+      // A meal is only accepted if it belongs to the guest's menu
+      const menuMeals = menu ? MENU_MEALS.get(menu) : undefined;
       const meal =
-        typeof body.meal === "string" && VALID_MEALS.has(body.meal)
+        typeof body.meal === "string" &&
+        (menuMeals
+          ? menuMeals.has(body.meal)
+          : [...MENU_MEALS.values()].some((s) => s.has(body.meal as string)))
           ? body.meal
           : null;
-      if (!setGuestResponse(guestId, attending, meal)) {
+      if (!setGuestResponse(guestId, attending, meal, menu)) {
         return NextResponse.json({ error: "Guest not found" }, { status: 404 });
+      }
+      return NextResponse.json({ ok: true });
+    }
+    if (action === "setInviteType") {
+      const partyId = Number(body.partyId);
+      const inviteType = body.inviteType === "evening" ? "evening" : "full";
+      if (!Number.isInteger(partyId) || partyId <= 0) {
+        return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+      }
+      if (!setPartyInviteType(partyId, inviteType)) {
+        return NextResponse.json({ error: "Party not found" }, { status: 404 });
       }
       return NextResponse.json({ ok: true });
     }

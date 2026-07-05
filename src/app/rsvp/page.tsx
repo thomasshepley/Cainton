@@ -9,6 +9,7 @@ import { site } from "@/lib/site";
 interface PartyMember {
   id: number;
   full_name: string;
+  menu: string;
   previous: { attending: boolean; meal: string | null } | null;
 }
 
@@ -375,7 +376,7 @@ export default function RsvpPage() {
                       onClick={() =>
                         setAnswers((prev) => ({
                           ...prev,
-                          [m.id]: { attending: false, meal: null },
+                          [m.id]: { ...prev[m.id], attending: false, meal: null },
                         }))
                       }
                       className={`border px-4 py-3 text-xs tracking-[0.2em] uppercase transition-all duration-200 ${
@@ -420,53 +421,67 @@ export default function RsvpPage() {
           }
         >
           {mealsApply ? (
-            <div className="space-y-8">
-              {attendingMembers.map((m) => (
-                <div key={m.id}>
-                  <p className="font-display mb-3 text-center text-2xl">
-                    {m.full_name}
-                  </p>
-                  <div className="space-y-3">
-                    {site.mealOptions.map((meal) => {
-                      const selected = answers[m.id]?.meal === meal.id;
-                      return (
-                        <button
-                          key={meal.id}
-                          type="button"
-                          onClick={() =>
-                            setAnswers((prev) => ({
-                              ...prev,
-                              [m.id]: { ...prev[m.id], meal: meal.id },
-                            }))
-                          }
-                          className={`relative block w-full border p-4 text-left transition-all duration-200 ${
-                            selected
-                              ? "border-sage-dark bg-sage-light"
-                              : "border-ink-soft/20 bg-white/60 hover:border-sage-dark/60"
-                          }`}
-                        >
-                          {meal.vegetarian && (
-                            <span
-                              title="Vegetarian"
-                              aria-label="Vegetarian"
-                              className="absolute top-2.5 right-2.5 flex h-6 w-6 items-center justify-center rounded-full border border-sage-dark text-[0.7rem] font-medium text-sage-dark"
-                            >
-                              V
+            <div className="space-y-10">
+              {attendingMembers.map((m) => {
+                // The menu is assigned by the couple (via the admin
+                // dashboard) — guests choose a dish from their menu only
+                const guestMenu =
+                  site.menus.find((menu) => menu.id === m.menu) ??
+                  site.menus[0];
+                return (
+                  <div key={m.id}>
+                    <p className="font-display mb-1 text-center text-2xl">
+                      {m.full_name}
+                    </p>
+                    {guestMenu.id !== "adult" && (
+                      <p className="mb-3 text-center text-[0.65rem] tracking-[0.25em] uppercase text-gold">
+                        {guestMenu.label}
+                      </p>
+                    )}
+                    <div className="mt-3 space-y-3">
+                      {guestMenu.mealOptions.map((meal) => {
+                        const selected = answers[m.id]?.meal === meal.id;
+                        return (
+                          <button
+                            key={meal.id}
+                            type="button"
+                            onClick={() =>
+                              setAnswers((prev) => ({
+                                ...prev,
+                                [m.id]: { ...prev[m.id], meal: meal.id },
+                              }))
+                            }
+                            className={`relative block w-full border p-4 text-left transition-all duration-200 ${
+                              selected
+                                ? "border-sage-dark bg-sage-light"
+                                : "border-ink-soft/20 bg-white/60 hover:border-sage-dark/60"
+                            }`}
+                          >
+                            {(meal.vegetarian || meal.glutenFree) && (
+                              <span
+                                title={meal.vegetarian ? "Vegetarian" : "Gluten-free"}
+                                aria-label={
+                                  meal.vegetarian ? "Vegetarian" : "Gluten-free"
+                                }
+                                className="absolute top-2.5 right-2.5 flex h-6 min-w-6 items-center justify-center rounded-full border border-sage-dark px-1 text-[0.6rem] font-medium text-sage-dark"
+                              >
+                                {meal.vegetarian ? "V" : "GF"}
+                              </span>
+                            )}
+                            <span className="font-display block pr-8 text-lg">
+                              {selected ? "✓ " : ""}
+                              {meal.label}
                             </span>
-                          )}
-                          <span className="font-display block pr-8 text-lg">
-                            {selected ? "✓ " : ""}
-                            {meal.label}
-                          </span>
-                          <span className="mt-1 block pr-8 text-xs leading-relaxed text-ink-soft">
-                            {meal.description}
-                          </span>
-                        </button>
-                      );
-                    })}
+                            <span className="mt-1 block pr-8 text-xs leading-relaxed text-ink-soft">
+                              {meal.description}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : anyAttending ? (
             <p className="text-center text-sm leading-relaxed text-ink-soft">

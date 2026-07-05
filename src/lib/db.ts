@@ -16,6 +16,8 @@ export interface Guest {
   id: number;
   party_id: number;
   full_name: string;
+  /** Which wedding-breakfast menu this guest is on (site.ts menus) */
+  menu: string;
 }
 
 /** 'full' = daytime + evening; 'evening' = evening reception only */
@@ -60,7 +62,8 @@ function initDb(): Database.Database {
     CREATE TABLE IF NOT EXISTS guests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       party_id INTEGER NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
-      full_name TEXT NOT NULL
+      full_name TEXT NOT NULL,
+      menu TEXT NOT NULL DEFAULT 'adult'
     );
     CREATE TABLE IF NOT EXISTS responses (
       guest_id INTEGER PRIMARY KEY REFERENCES guests(id) ON DELETE CASCADE,
@@ -93,6 +96,12 @@ function initDb(): Database.Database {
     db.exec(
       "ALTER TABLE party_comments ADD COLUMN song_request TEXT NOT NULL DEFAULT ''"
     );
+  }
+  const guestCols = db.prepare("PRAGMA table_info(guests)").all() as {
+    name: string;
+  }[];
+  if (!guestCols.some((c) => c.name === "menu")) {
+    db.exec("ALTER TABLE guests ADD COLUMN menu TEXT NOT NULL DEFAULT 'adult'");
   }
 
   // Seed the guest list on first run
@@ -137,7 +146,7 @@ export function getDb(): Database.Database {
 
 export function allGuests(): Guest[] {
   return getDb()
-    .prepare("SELECT id, party_id, full_name FROM guests ORDER BY full_name")
+    .prepare("SELECT id, party_id, full_name, menu FROM guests ORDER BY full_name")
     .all() as Guest[];
 }
 
@@ -147,7 +156,7 @@ export function partyOf(guestId: number): {
 } | null {
   const db = getDb();
   const guest = db
-    .prepare("SELECT id, party_id, full_name FROM guests WHERE id = ?")
+    .prepare("SELECT id, party_id, full_name, menu FROM guests WHERE id = ?")
     .get(guestId) as Guest | undefined;
   if (!guest) return null;
   const party = db
@@ -155,7 +164,7 @@ export function partyOf(guestId: number): {
     .get(guest.party_id) as Party;
   const members = db
     .prepare(
-      "SELECT id, party_id, full_name FROM guests WHERE party_id = ? ORDER BY id"
+      "SELECT id, party_id, full_name, menu FROM guests WHERE party_id = ? ORDER BY id"
     )
     .all(guest.party_id) as Guest[];
   return { party, members };
@@ -187,6 +196,14 @@ export function getParty(partyId: number): Party | null {
       .prepare("SELECT id, label, invite_type FROM parties WHERE id = ?")
       .get(partyId) as Party | undefined) ?? null
   );
+}
+
+export function guestsForParty(partyId: number): Guest[] {
+  return getDb()
+    .prepare(
+      "SELECT id, party_id, full_name, menu FROM guests WHERE party_id = ? ORDER BY id"
+    )
+    .all(partyId) as Guest[];
 }
 
 export function saveRsvp(input: {
@@ -255,6 +272,7 @@ export interface AdminRow {
   guest_id: number;
   full_name: string;
   party_id: number;
+  menu: string;
   party_label: string;
   invite_type: InviteType;
   attending: number | null;
@@ -268,7 +286,8 @@ export interface AdminRow {
 export function adminOverview(): AdminRow[] {
   return getDb()
     .prepare(
-      `SELECT g.id AS guest_id, g.full_name, g.party_id, p.label AS party_label,
+      `SELECT g.id AS guest_id, g.full_name, g.party_id, g.menu,
+              p.label AS party_label,
               p.invite_type, r.attending, r.meal, r.submitted_by, r.submitted_at,
               c.comment, c.song_request
        FROM guests g
@@ -345,18 +364,23 @@ export function addGuestToParty(partyId: number, name: string): void {
 /**
  * Admin override of a single guest's response.
  * attending null clears the response entirely (back to "no response");
- * meal is only stored for attending guests.
+ * meal is only stored for attending guests; menu (if given) updates the
+ * guest's assigned menu regardless of status.
  */
 export function setGuestResponse(
   guestId: number,
   attending: boolean | null,
-  meal: string | null
+  meal: string | null,
+  menu?: string
 ): boolean {
   const db = getDb();
   const guest = db
     .prepare("SELECT id FROM guests WHERE id = ?")
     .get(guestId) as { id: number } | undefined;
   if (!guest) return false;
+  if (menu) {
+    db.prepare("UPDATE guests SET menu = ? WHERE id = ?").run(menu, guestId);
+  }
   if (attending === null) {
     db.prepare("DELETE FROM responses WHERE guest_id = ?").run(guestId);
     return true;
@@ -371,4 +395,15 @@ export function setGuestResponse(
        submitted_at = excluded.submitted_at`
   ).run(guestId, attending ? 1 : 0, attending ? meal : null, new Date().toISOString());
   return true;
+}
+
+/** Admin: switch a whole party between full-day and evening-only */
+export function setPartyInviteType(
+  partyId: number,
+  inviteType: InviteType
+): boolean {
+  const result = getDb()
+    .prepare("UPDATE parties SET invite_type = ? WHERE id = ?")
+    .run(inviteType, partyId);
+  return result.changes > 0;
 }

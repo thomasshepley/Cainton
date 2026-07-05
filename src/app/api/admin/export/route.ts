@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminOverview } from "@/lib/db";
 import { isAdmin } from "@/lib/adminAuth";
-import { site } from "@/lib/site";
+import { MEAL_LABELS, menuById } from "@/lib/site";
 
 function csvEscape(value: string): string {
   if (/[",\n]/.test(value)) {
@@ -15,12 +15,9 @@ export async function GET(req: NextRequest) {
   if (!isAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const mealLabels = new Map<string, string>(
-    site.mealOptions.map((m) => [m.id, m.label])
-  );
   const rows = adminOverview();
   const header =
-    "Guest,Party,Invitation,Status,Meal,Submitted By,Submitted At,Party Comment,Song Request";
+    "Guest,Party,Invitation,Status,Menu,Meal,Submitted By,Submitted At,Party Comment,Song Request";
   const lines = rows.map((r) =>
     [
       r.full_name,
@@ -31,7 +28,8 @@ export async function GET(req: NextRequest) {
         : r.attending === 1
           ? "Attending"
           : "Declined",
-      r.meal ? (mealLabels.get(r.meal) ?? r.meal) : "",
+      r.invite_type === "full" ? menuById(r.menu).label : "",
+      r.meal ? (MEAL_LABELS.get(r.meal) ?? r.meal) : "",
       r.submitted_by ?? "",
       r.submitted_at ?? "",
       r.comment ?? "",

@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { site } from "@/lib/site";
+import { site, MEAL_LABELS, menuById } from "@/lib/site";
 
 interface AdminRow {
   guest_id: number;
   full_name: string;
   party_id: number;
+  menu: string;
   party_label: string;
   invite_type: "full" | "evening";
   attending: number | null;
@@ -17,10 +18,6 @@ interface AdminRow {
   comment: string | null;
   song_request: string | null;
 }
-
-const MEAL_LABELS = new Map<string, string>(
-  site.mealOptions.map((m) => [m.id, m.label])
-);
 
 export default function AdminPage() {
   const [key, setKey] = useState("");
@@ -224,21 +221,36 @@ export default function AdminPage() {
         ))}
       </section>
 
-      {/* Meal counts */}
+      {/* Meal counts, grouped by menu for the caterer */}
       {stats.meals.size > 0 && (
         <section className="mt-6 border border-ink-soft/20 bg-white/60 p-5">
           <h2 className="text-xs tracking-[0.25em] uppercase text-ink-soft">
             Meal counts
           </h2>
-          <div className="mt-3 flex flex-wrap gap-x-8 gap-y-2">
-            {[...stats.meals.entries()].map(([mealId, count]) => (
-              <p key={mealId} className="text-sm">
-                <span className="font-display text-xl">{count}</span>{" "}
-                <span className="text-ink-soft">
-                  × {MEAL_LABELS.get(mealId) ?? mealId}
-                </span>
-              </p>
-            ))}
+          <div className="mt-3 space-y-3">
+            {site.menus.map((menu) => {
+              const counted = menu.mealOptions.filter((o) =>
+                stats.meals.has(o.id)
+              );
+              if (counted.length === 0) return null;
+              return (
+                <div key={menu.id}>
+                  <p className="text-[0.65rem] tracking-[0.2em] uppercase text-gold">
+                    {menu.label}
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-x-8 gap-y-1">
+                    {counted.map((o) => (
+                      <p key={o.id} className="text-sm">
+                        <span className="font-display text-xl">
+                          {stats.meals.get(o.id)}
+                        </span>{" "}
+                        <span className="text-ink-soft">× {o.label}</span>
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
@@ -255,17 +267,25 @@ export default function AdminPage() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-display flex items-center gap-3 text-xl">
                   {p.label}
-                  <span
-                    className={`rounded-full border px-2.5 py-0.5 text-[0.6rem] tracking-[0.15em] uppercase ${
+                  <select
+                    value={p.rows[0]?.invite_type ?? "full"}
+                    onChange={(e) =>
+                      action({
+                        action: "setInviteType",
+                        partyId,
+                        inviteType: e.target.value,
+                      })
+                    }
+                    disabled={busy}
+                    className={`rounded-full border bg-transparent px-2.5 py-0.5 font-body text-[0.6rem] tracking-[0.15em] uppercase outline-none ${
                       p.rows[0]?.invite_type === "evening"
                         ? "border-gold/60 text-gold"
                         : "border-sage-dark/40 text-sage-dark"
                     }`}
                   >
-                    {p.rows[0]?.invite_type === "evening"
-                      ? "Evening only"
-                      : "Full day"}
-                  </span>
+                    <option value="full">Full day</option>
+                    <option value="evening">Evening only</option>
+                  </select>
                 </h3>
                 <button
                   onClick={() => {
@@ -320,6 +340,36 @@ export default function AdminPage() {
                         </select>
                       </td>
                       <td className="py-2 pr-4">
+                        {r.invite_type === "full" ? (
+                          <select
+                            value={r.menu}
+                            onChange={(e) =>
+                              action({
+                                action: "setResponse",
+                                guestId: r.guest_id,
+                                attending:
+                                  r.attending === null
+                                    ? null
+                                    : r.attending === 1,
+                                // dish must belong to the new menu
+                                meal: null,
+                                menu: e.target.value,
+                              })
+                            }
+                            disabled={busy}
+                            className="border border-ink-soft/25 bg-white px-2 py-1 text-sm text-ink-soft outline-none focus:border-gold"
+                          >
+                            {site.menus.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-ink-soft">—</span>
+                        )}
+                      </td>
+                      <td className="py-2 pr-4">
                         {r.attending === 1 && r.invite_type === "full" ? (
                           <select
                             value={r.meal ?? ""}
@@ -329,13 +379,14 @@ export default function AdminPage() {
                                 guestId: r.guest_id,
                                 attending: true,
                                 meal: e.target.value || null,
+                                menu: r.menu,
                               })
                             }
                             disabled={busy}
                             className="border border-ink-soft/25 bg-white px-2 py-1 text-sm text-ink-soft outline-none focus:border-gold"
                           >
                             <option value="">No meal chosen</option>
-                            {site.mealOptions.map((m) => (
+                            {menuById(r.menu).mealOptions.map((m) => (
                               <option key={m.id} value={m.id}>
                                 {m.label}
                               </option>

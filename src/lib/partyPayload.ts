@@ -16,6 +16,7 @@ export function buildPartyPayload(guestId: number) {
       return {
         id: m.id,
         full_name: m.full_name,
+        menu: m.menu,
         previous: r ? { attending: r.attending === 1, meal: r.meal } : null,
       };
     }),
