@@ -250,8 +250,7 @@ export default function RsvpPage() {
           <form onSubmit={lookup} className="space-y-6">
             <p className="text-center text-sm leading-relaxed text-ink-soft">
               Please enter your first and last name as it appears on your
-              invitation. Don&apos;t worry about exact spelling — we&apos;ll
-              find you.
+              invitation.
             </p>
             <input
               type="text"
