@@ -1,0 +1,13 @@
+services:
+  wedding-rsvp:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      # Change this before sharing the site!
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-cainton-admin}
+    volumes:
+      # RSVPs live in ./data/wedding.db on your PC, so they survive
+      # container rebuilds and restarts
+      - ./data:/app/data
+    restart: unless-stopped

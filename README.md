@@ -25,6 +25,47 @@ automatically on first run — so it needs a host with a persistent filesystem
 (a small VPS, Railway, Fly.io, Render with a disk, a Raspberry Pi…). It will
 **not** persist data on serverless hosts like Vercel.
 
+## Running with Docker (recommended for a home PC)
+
+With [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or
+Docker Engine) installed:
+
+```bash
+ADMIN_PASSWORD=pick-a-secret docker compose up -d --build
+```
+
+That's it — the site is on http://localhost:3000 and restarts automatically
+with your PC (`restart: unless-stopped`). All RSVPs are stored in
+`./data/wedding.db` on your machine (the folder is mounted into the
+container), so they survive rebuilds; back that one file up and you can never
+lose a response. Edit `data/guests.seed.json` *before* first launch to set the
+real guest list, or manage guests later from `/admin`. To re-seed from the
+JSON, stop the container, delete `data/wedding.db*`, and start it again.
+
+Useful commands:
+
+```bash
+docker compose logs -f       # watch the server logs
+docker compose down          # stop
+docker compose up -d --build # rebuild after changing code/config
+```
+
+### Letting other people reach it
+
+- **Same Wi-Fi/LAN**: they can visit `http://<your-PC's-IP>:3000`
+  (find it with `ipconfig` on Windows / `ip addr` on Linux / `ifconfig` on Mac).
+- **From anywhere (to show your sister, or for real guests)**: put a tunnel in
+  front rather than opening router ports. Easiest options:
+  - [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) —
+    free, custom domain support: `cloudflared tunnel --url http://localhost:3000`
+    gives you a public HTTPS URL in one command.
+  - [Tailscale](https://tailscale.com/) `tailscale funnel 3000`, or
+    [ngrok](https://ngrok.com/) `ngrok http 3000`.
+
+  For the real invitations, a Cloudflare Tunnel with a named domain (e.g.
+  `rsvp.yourdomain.com`) is the most guest-friendly — free tunnel URLs are
+  random strings that change on restart.
+
 ## Customizing
 
 | What | Where |
