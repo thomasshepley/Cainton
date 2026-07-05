@@ -7,11 +7,11 @@ export const site = {
   // Short one-liner shown under the names on the splash page
   tagline: "are getting married",
   dateDisplay: "Saturday, June 12, 2027",
-  venueName: "The Old Orchard Estate",
-  venueLocation: "Willow Creek, California",
+  venueName: "The Pub Name",
+  venueLocation: "Manchester",
   rsvpDeadlineDisplay: "May 1, 2027",
   // Email shown to guests who can't find their name
-  contactEmail: "thomasshepley@gmail.com",
+  contactEmail: "tom@sheps.me",
   mealOptions: [
     {
       id: "beef",
