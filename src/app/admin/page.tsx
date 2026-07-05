@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { site, MEAL_LABELS, menuById } from "@/lib/site";
+import { site, menuById } from "@/lib/site";
 
 interface AdminRow {
   guest_id: number;
@@ -19,44 +19,109 @@ interface AdminRow {
   song_request: string | null;
 }
 
+type StatKey = "invited" | "attending" | "declined" | "awaiting";
+
+const SELECT_CLASS =
+  "rounded-lg border border-ink-soft/25 bg-white px-2.5 py-1.5 text-xs text-ink outline-none transition-colors focus:border-gold disabled:opacity-50";
+
+/* ---------- small building blocks ---------- */
+
+function SegmentedStatus({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: "none" | "yes" | "no";
+  onChange: (v: "none" | "yes" | "no") => void;
+  disabled?: boolean;
+}) {
+  const options: { v: "none" | "yes" | "no"; label: string; on: string }[] = [
+    { v: "yes", label: "✓ Yes", on: "bg-sage-dark text-cream" },
+    { v: "no", label: "✗ No", on: "bg-ink text-cream" },
+    { v: "none", label: "–", on: "bg-ink-soft/70 text-cream" },
+  ];
+  return (
+    <div className="inline-flex overflow-hidden rounded-full border border-ink-soft/25 bg-white">
+      {options.map((o, i) => (
+        <button
+          key={o.v}
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange(o.v)}
+          title={
+            o.v === "none" ? "Clear (no response)" : o.v === "yes" ? "Attending" : "Declined"
+          }
+          className={`px-3 py-1.5 text-xs transition-colors disabled:opacity-50 ${
+            i > 0 ? "border-l border-ink-soft/15" : ""
+          } ${value === o.v ? o.on : "text-ink-soft hover:bg-cream-dark"}`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Chip({
+  tone,
+  children,
+}: {
+  tone: "sage" | "ink" | "gold";
+  children: React.ReactNode;
+}) {
+  const tones = {
+    sage: "border-sage-dark/40 bg-sage-light text-sage-dark",
+    ink: "border-ink-soft/30 bg-cream-dark text-ink-soft",
+    gold: "border-gold/50 bg-gold-light text-gold",
+  };
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.65rem] whitespace-nowrap ${tones[tone]}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+/* ---------- page ---------- */
+
 export default function AdminPage() {
   const [key, setKey] = useState("");
   const [authed, setAuthed] = useState(false);
   const [rows, setRows] = useState<AdminRow[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [openParties, setOpenParties] = useState<Set<number>>(new Set());
+  const [openStat, setOpenStat] = useState<StatKey | null>(null);
 
   // New party form
   const [newLabel, setNewLabel] = useState("");
   const [newGuests, setNewGuests] = useState("");
   const [newInvite, setNewInvite] = useState<"full" | "evening">("full");
 
-  const load = useCallback(
-    async (adminKey: string) => {
-      setBusy(true);
-      setError("");
-      try {
-        const res = await fetch("/api/admin/overview", {
-          headers: { "x-admin-key": adminKey },
-        });
-        if (res.status === 401) {
-          setAuthed(false);
-          sessionStorage.removeItem("adminKey");
-          setError("Incorrect password.");
-          return;
-        }
-        const data = await res.json();
-        setRows(data.rows);
-        setAuthed(true);
-        sessionStorage.setItem("adminKey", adminKey);
-      } catch {
-        setError("Could not load data.");
-      } finally {
-        setBusy(false);
+  const load = useCallback(async (adminKey: string) => {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/overview", {
+        headers: { "x-admin-key": adminKey },
+      });
+      if (res.status === 401) {
+        setAuthed(false);
+        sessionStorage.removeItem("adminKey");
+        setError("Incorrect password.");
+        return;
       }
-    },
-    []
-  );
+      const data = await res.json();
+      setRows(data.rows);
+      setAuthed(true);
+      sessionStorage.setItem("adminKey", adminKey);
+    } catch {
+      setError("Could not load data.");
+    } finally {
+      setBusy(false);
+    }
+  }, []);
 
   useEffect(() => {
     const saved = sessionStorage.getItem("adminKey");
@@ -106,17 +171,18 @@ export default function AdminPage() {
   }
 
   const stats = useMemo(() => {
-    const total = rows.length;
-    const attending = rows.filter((r) => r.attending === 1).length;
-    const declined = rows.filter((r) => r.attending === 0).length;
-    const pending = total - attending - declined;
+    const lists: Record<StatKey, AdminRow[]> = {
+      invited: rows,
+      attending: rows.filter((r) => r.attending === 1),
+      declined: rows.filter((r) => r.attending === 0),
+      awaiting: rows.filter((r) => r.attending === null),
+    };
     const meals = new Map<string, number>();
-    for (const r of rows) {
-      if (r.attending === 1 && r.meal) {
-        meals.set(r.meal, (meals.get(r.meal) ?? 0) + 1);
-      }
+    for (const r of lists.attending) {
+      if (r.meal) meals.set(r.meal, (meals.get(r.meal) ?? 0) + 1);
     }
-    return { total, attending, declined, pending, meals };
+    const responded = lists.attending.length + lists.declined.length;
+    return { lists, meals, responded };
   }, [rows]);
 
   const parties = useMemo(() => {
@@ -126,8 +192,24 @@ export default function AdminPage() {
       p.rows.push(r);
       byParty.set(r.party_id, p);
     }
-    return [...byParty.entries()];
+    return [...byParty.entries()].map(([id, p]) => {
+      const attending = p.rows.filter((r) => r.attending === 1).length;
+      const declined = p.rows.filter((r) => r.attending === 0).length;
+      const awaiting = p.rows.length - attending - declined;
+      return { id, ...p, attending, declined, awaiting };
+    });
   }, [rows]);
+
+  function toggleParty(id: number) {
+    setOpenParties((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const allOpen = parties.length > 0 && openParties.size === parties.length;
 
   if (!authed) {
     return (
@@ -170,19 +252,29 @@ export default function AdminPage() {
     );
   }
 
+  const statTiles: { key: StatKey; label: string; accent: string }[] = [
+    { key: "invited", label: "Invited", accent: "text-ink" },
+    { key: "attending", label: "Attending", accent: "text-sage-dark" },
+    { key: "declined", label: "Declined", accent: "text-ink-soft" },
+    { key: "awaiting", label: "Awaiting", accent: "text-gold" },
+  ];
+  const respondedPct =
+    rows.length === 0 ? 0 : Math.round((stats.responded / rows.length) * 100);
+
   return (
-    <main className="mx-auto min-h-screen max-w-5xl px-6 py-10">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <main className="mx-auto min-h-screen max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+      {/* Header */}
+      <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-4xl">Wedding dashboard</h1>
-          <p className="mt-1 text-sm text-ink-soft">
+          <h1 className="font-display text-3xl sm:text-4xl">Wedding dashboard</h1>
+          <p className="mt-1 text-xs text-ink-soft sm:text-sm">
             {site.coupleNames} · {site.dateDisplay}
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button
             onClick={downloadCsv}
-            className="border border-ink-soft/40 px-4 py-2 text-xs tracking-[0.15em] uppercase text-ink-soft hover:border-ink hover:text-ink"
+            className="rounded-lg border border-ink-soft/30 px-3 py-1.5 text-[0.65rem] tracking-[0.15em] uppercase text-ink-soft hover:border-ink hover:text-ink"
           >
             Export CSV
           </button>
@@ -192,7 +284,7 @@ export default function AdminPage() {
               setAuthed(false);
               setKey("");
             }}
-            className="border border-ink-soft/40 px-4 py-2 text-xs tracking-[0.15em] uppercase text-ink-soft hover:border-ink hover:text-ink"
+            className="rounded-lg border border-ink-soft/30 px-3 py-1.5 text-[0.65rem] tracking-[0.15em] uppercase text-ink-soft hover:border-ink hover:text-ink"
           >
             Log out
           </button>
@@ -201,53 +293,105 @@ export default function AdminPage() {
 
       {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
 
-      {/* Stats */}
-      <section className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {[
-          { label: "Invited", value: stats.total },
-          { label: "Attending", value: stats.attending },
-          { label: "Declined", value: stats.declined },
-          { label: "Awaiting", value: stats.pending },
-        ].map((s) => (
+      {/* Response progress */}
+      <section className="mt-6 rounded-xl border border-ink-soft/20 bg-white/60 p-4">
+        <div className="flex items-baseline justify-between">
+          <p className="text-[0.65rem] tracking-[0.25em] uppercase text-ink-soft">
+            Responses
+          </p>
+          <p className="text-xs text-ink-soft">
+            <span className="font-display text-lg text-ink">{stats.responded}</span>{" "}
+            of {rows.length} · {respondedPct}%
+          </p>
+        </div>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-cream-dark">
           <div
-            key={s.label}
-            className="border border-ink-soft/20 bg-white/60 p-5 text-center"
-          >
-            <p className="font-display text-4xl">{s.value}</p>
-            <p className="mt-1 text-xs tracking-[0.2em] uppercase text-ink-soft">
-              {s.label}
+            className="h-full rounded-full bg-sage transition-all duration-500"
+            style={{ width: `${respondedPct}%` }}
+          />
+        </div>
+      </section>
+
+      {/* Stat tiles — tap to see who's in each group */}
+      <section className="mt-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          {statTiles.map((t) => {
+            const open = openStat === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setOpenStat(open ? null : t.key)}
+                className={`rounded-xl border p-3 text-center transition-all sm:p-4 ${
+                  open
+                    ? "border-gold bg-gold-light/60"
+                    : "border-ink-soft/20 bg-white/60 hover:border-gold/60"
+                }`}
+              >
+                <p className={`font-display text-3xl sm:text-4xl ${t.accent}`}>
+                  {stats.lists[t.key].length}
+                </p>
+                <p className="mt-0.5 text-[0.6rem] tracking-[0.2em] uppercase text-ink-soft">
+                  {t.label}
+                  <span
+                    className={`ml-1 inline-block transition-transform ${open ? "rotate-180" : ""}`}
+                  >
+                    ▾
+                  </span>
+                </p>
+              </button>
+            );
+          })}
+        </div>
+        {openStat && (
+          <div className="animate-rise mt-2 rounded-xl border border-gold/40 bg-white/70 p-4">
+            <p className="text-[0.65rem] tracking-[0.25em] uppercase text-gold">
+              {statTiles.find((t) => t.key === openStat)?.label} —{" "}
+              {stats.lists[openStat].length}{" "}
+              {stats.lists[openStat].length === 1 ? "guest" : "guests"}
             </p>
+            {stats.lists[openStat].length === 0 ? (
+              <p className="mt-2 text-sm text-ink-soft">No one yet.</p>
+            ) : (
+              <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+                {stats.lists[openStat].map((r) => (
+                  <li key={r.guest_id} className="text-sm">
+                    {r.full_name}
+                    <span className="ml-1.5 text-xs text-ink-soft/70">
+                      {r.party_label}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-        ))}
+        )}
       </section>
 
       {/* Meal counts, grouped by menu for the caterer */}
       {stats.meals.size > 0 && (
-        <section className="mt-6 border border-ink-soft/20 bg-white/60 p-5">
-          <h2 className="text-xs tracking-[0.25em] uppercase text-ink-soft">
+        <section className="mt-4 rounded-xl border border-ink-soft/20 bg-white/60 p-4">
+          <h2 className="text-[0.65rem] tracking-[0.25em] uppercase text-ink-soft">
             Meal counts
           </h2>
-          <div className="mt-3 space-y-3">
+          <div className="mt-2 space-y-2">
             {site.menus.map((menu) => {
               const counted = menu.mealOptions.filter((o) =>
                 stats.meals.has(o.id)
               );
               if (counted.length === 0) return null;
               return (
-                <div key={menu.id}>
-                  <p className="text-[0.65rem] tracking-[0.2em] uppercase text-gold">
+                <div key={menu.id} className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+                  <p className="w-full text-[0.6rem] tracking-[0.2em] uppercase text-gold sm:w-32">
                     {menu.label}
                   </p>
-                  <div className="mt-1 flex flex-wrap gap-x-8 gap-y-1">
-                    {counted.map((o) => (
-                      <p key={o.id} className="text-sm">
-                        <span className="font-display text-xl">
-                          {stats.meals.get(o.id)}
-                        </span>{" "}
-                        <span className="text-ink-soft">× {o.label}</span>
-                      </p>
-                    ))}
-                  </div>
+                  {counted.map((o) => (
+                    <p key={o.id} className="text-sm">
+                      <span className="font-display text-lg">
+                        {stats.meals.get(o.id)}
+                      </span>{" "}
+                      <span className="text-xs text-ink-soft">× {o.label}</span>
+                    </p>
+                  ))}
                 </div>
               );
             })}
@@ -255,185 +399,212 @@ export default function AdminPage() {
         </section>
       )}
 
-      {/* Guest list by party */}
-      <section className="mt-10">
-        <h2 className="font-display text-2xl">Guest list</h2>
-        <div className="mt-4 space-y-4">
-          {parties.map(([partyId, p]) => (
-            <div
-              key={partyId}
-              className="border border-ink-soft/20 bg-white/60 p-5"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-display flex items-center gap-3 text-xl">
-                  {p.label}
-                  <select
-                    value={p.rows[0]?.invite_type ?? "full"}
-                    onChange={(e) =>
-                      action({
-                        action: "setInviteType",
-                        partyId,
-                        inviteType: e.target.value,
-                      })
-                    }
-                    disabled={busy}
-                    className={`rounded-full border bg-transparent px-2.5 py-0.5 font-body text-[0.6rem] tracking-[0.15em] uppercase outline-none ${
-                      p.rows[0]?.invite_type === "evening"
-                        ? "border-gold/60 text-gold"
-                        : "border-sage-dark/40 text-sage-dark"
-                    }`}
-                  >
-                    <option value="full">Full day</option>
-                    <option value="evening">Evening only</option>
-                  </select>
-                </h3>
+      {/* Guest list */}
+      <section className="mt-8">
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-2xl">Guest list</h2>
+          <button
+            onClick={() =>
+              setOpenParties(
+                allOpen ? new Set() : new Set(parties.map((p) => p.id))
+              )
+            }
+            className="text-[0.65rem] tracking-[0.15em] uppercase text-ink-soft underline-offset-4 hover:underline"
+          >
+            {allOpen ? "Collapse all" : "Expand all"}
+          </button>
+        </div>
+
+        <div className="mt-3 space-y-2">
+          {parties.map((p) => {
+            const open = openParties.has(p.id);
+            const inviteType = p.rows[0]?.invite_type ?? "full";
+            const comment = p.rows[0]?.comment;
+            const song = p.rows[0]?.song_request;
+            return (
+              <div
+                key={p.id}
+                className="overflow-hidden rounded-xl border border-ink-soft/20 bg-white/60"
+              >
+                {/* Collapsed header: the at-a-glance summary */}
                 <button
-                  onClick={() => {
-                    if (confirm(`Delete party "${p.label}" and all its guests?`))
-                      action({ action: "deleteParty", partyId });
-                  }}
-                  className="text-xs tracking-[0.15em] uppercase text-red-800/70 hover:text-red-800 hover:underline"
+                  onClick={() => toggleParty(p.id)}
+                  className="flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 text-left transition-colors hover:bg-cream-dark/40"
                 >
-                  Delete party
+                  <span
+                    className={`inline-block text-xs text-ink-soft transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+                  >
+                    ▸
+                  </span>
+                  <span className="font-display min-w-0 flex-1 truncate text-lg leading-tight">
+                    {p.label}
+                  </span>
+                  {inviteType === "evening" && <Chip tone="gold">evening</Chip>}
+                  <span className="flex items-center gap-1.5">
+                    {p.attending > 0 && <Chip tone="sage">✓ {p.attending}</Chip>}
+                    {p.declined > 0 && <Chip tone="ink">✗ {p.declined}</Chip>}
+                    {p.awaiting > 0 && <Chip tone="gold">· {p.awaiting} awaiting</Chip>}
+                    {(comment || song) && (
+                      <span className="text-xs" title="Has a comment or song request">
+                        💬
+                      </span>
+                    )}
+                  </span>
                 </button>
+
+                {open && (
+                  <div className="animate-rise border-t border-ink-soft/10 px-4 pb-4">
+                    {/* Party-level controls */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 py-3">
+                      <select
+                        value={inviteType}
+                        onChange={(e) =>
+                          action({
+                            action: "setInviteType",
+                            partyId: p.id,
+                            inviteType: e.target.value,
+                          })
+                        }
+                        disabled={busy}
+                        className={SELECT_CLASS}
+                      >
+                        <option value="full">Invited: full day</option>
+                        <option value="evening">Invited: evening only</option>
+                      </select>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete party "${p.label}" and all its guests?`))
+                            action({ action: "deleteParty", partyId: p.id });
+                        }}
+                        className="text-[0.65rem] tracking-[0.15em] uppercase text-red-800/60 hover:text-red-800 hover:underline"
+                      >
+                        Delete party
+                      </button>
+                    </div>
+
+                    {/* Members */}
+                    <div className="space-y-2">
+                      {p.rows.map((r) => (
+                        <div
+                          key={r.guest_id}
+                          className="rounded-lg border border-ink-soft/15 bg-white/70 p-3"
+                        >
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                            <p className="min-w-0 flex-1 truncate text-sm font-medium">
+                              {r.full_name}
+                            </p>
+                            <SegmentedStatus
+                              value={
+                                r.attending === null
+                                  ? "none"
+                                  : r.attending === 1
+                                    ? "yes"
+                                    : "no"
+                              }
+                              disabled={busy}
+                              onChange={(v) =>
+                                action({
+                                  action: "setResponse",
+                                  guestId: r.guest_id,
+                                  attending: v === "none" ? null : v === "yes",
+                                  meal: v === "yes" ? r.meal : null,
+                                  menu: r.menu,
+                                })
+                              }
+                            />
+                            <button
+                              onClick={() => {
+                                if (confirm(`Remove ${r.full_name} from the list?`))
+                                  action({
+                                    action: "deleteGuest",
+                                    guestId: r.guest_id,
+                                  });
+                              }}
+                              title="Remove guest"
+                              className="text-xs text-red-800/50 hover:text-red-800"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          {inviteType === "full" && (
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <select
+                                value={r.menu}
+                                onChange={(e) =>
+                                  action({
+                                    action: "setResponse",
+                                    guestId: r.guest_id,
+                                    attending:
+                                      r.attending === null
+                                        ? null
+                                        : r.attending === 1,
+                                    meal: null,
+                                    menu: e.target.value,
+                                  })
+                                }
+                                disabled={busy}
+                                className={SELECT_CLASS}
+                              >
+                                {site.menus.map((m) => (
+                                  <option key={m.id} value={m.id}>
+                                    {m.label}
+                                  </option>
+                                ))}
+                              </select>
+                              {r.attending === 1 && (
+                                <select
+                                  value={r.meal ?? ""}
+                                  onChange={(e) =>
+                                    action({
+                                      action: "setResponse",
+                                      guestId: r.guest_id,
+                                      attending: true,
+                                      meal: e.target.value || null,
+                                      menu: r.menu,
+                                    })
+                                  }
+                                  disabled={busy}
+                                  className={`${SELECT_CLASS} ${
+                                    r.meal === null ? "border-gold text-gold" : ""
+                                  }`}
+                                >
+                                  <option value="">Choose meal…</option>
+                                  {menuById(r.menu).mealOptions.map((m) => (
+                                    <option key={m.id} value={m.id}>
+                                      {m.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Comment + song */}
+                    {(comment || song) && (
+                      <div className="mt-3 space-y-1 rounded-lg bg-cream-dark/50 p-3 text-sm text-ink-soft">
+                        {comment && <p className="italic">“{comment}”</p>}
+                        {song && <p>🎵 {song}</p>}
+                      </div>
+                    )}
+
+                    <AddGuestInline
+                      onAdd={(name) =>
+                        action({ action: "addGuest", partyId: p.id, name })
+                      }
+                    />
+                  </div>
+                )}
               </div>
-              <table className="mt-3 w-full text-sm">
-                <tbody>
-                  {p.rows.map((r) => (
-                    <tr
-                      key={r.guest_id}
-                      className="border-t border-ink-soft/10"
-                    >
-                      <td className="py-2 pr-4">{r.full_name}</td>
-                      <td className="py-2 pr-4">
-                        <select
-                          value={
-                            r.attending === null
-                              ? "none"
-                              : r.attending === 1
-                                ? "yes"
-                                : "no"
-                          }
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            action({
-                              action: "setResponse",
-                              guestId: r.guest_id,
-                              attending:
-                                v === "none" ? null : v === "yes",
-                              // keep the current meal when still attending
-                              meal: v === "yes" ? r.meal : null,
-                            });
-                          }}
-                          disabled={busy}
-                          className={`border border-ink-soft/25 bg-white px-2 py-1 text-sm outline-none focus:border-gold ${
-                            r.attending === null
-                              ? "text-ink-soft/60"
-                              : r.attending === 1
-                                ? "text-sage-dark"
-                                : "text-ink-soft"
-                          }`}
-                        >
-                          <option value="none">No response</option>
-                          <option value="yes">✓ Attending</option>
-                          <option value="no">✗ Declined</option>
-                        </select>
-                      </td>
-                      <td className="py-2 pr-4">
-                        {r.invite_type === "full" ? (
-                          <select
-                            value={r.menu}
-                            onChange={(e) =>
-                              action({
-                                action: "setResponse",
-                                guestId: r.guest_id,
-                                attending:
-                                  r.attending === null
-                                    ? null
-                                    : r.attending === 1,
-                                // dish must belong to the new menu
-                                meal: null,
-                                menu: e.target.value,
-                              })
-                            }
-                            disabled={busy}
-                            className="border border-ink-soft/25 bg-white px-2 py-1 text-sm text-ink-soft outline-none focus:border-gold"
-                          >
-                            {site.menus.map((m) => (
-                              <option key={m.id} value={m.id}>
-                                {m.label}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className="text-ink-soft">—</span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-4">
-                        {r.attending === 1 && r.invite_type === "full" ? (
-                          <select
-                            value={r.meal ?? ""}
-                            onChange={(e) =>
-                              action({
-                                action: "setResponse",
-                                guestId: r.guest_id,
-                                attending: true,
-                                meal: e.target.value || null,
-                                menu: r.menu,
-                              })
-                            }
-                            disabled={busy}
-                            className="border border-ink-soft/25 bg-white px-2 py-1 text-sm text-ink-soft outline-none focus:border-gold"
-                          >
-                            <option value="">No meal chosen</option>
-                            {menuById(r.menu).mealOptions.map((m) => (
-                              <option key={m.id} value={m.id}>
-                                {m.label}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className="text-ink-soft">—</span>
-                        )}
-                      </td>
-                      <td className="py-2 text-right">
-                        <button
-                          onClick={() => {
-                            if (confirm(`Remove ${r.full_name} from the list?`))
-                              action({
-                                action: "deleteGuest",
-                                guestId: r.guest_id,
-                              });
-                          }}
-                          className="text-xs text-red-800/60 hover:text-red-800 hover:underline"
-                        >
-                          remove
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {(p.rows[0]?.comment || p.rows[0]?.song_request) && (
-                <div className="mt-3 space-y-1 border-t border-ink-soft/10 pt-3 text-sm text-ink-soft">
-                  {p.rows[0]?.comment && <p className="italic">“{p.rows[0].comment}”</p>}
-                  {p.rows[0]?.song_request && (
-                    <p>🎵 Song request: {p.rows[0].song_request}</p>
-                  )}
-                </div>
-              )}
-              <AddGuestInline
-                onAdd={(name) =>
-                  action({ action: "addGuest", partyId, name })
-                }
-              />
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
       {/* Add party */}
-      <section className="mt-10 border border-ink-soft/20 bg-white/60 p-5">
+      <section className="mt-8 rounded-xl border border-ink-soft/20 bg-white/60 p-4">
         <h2 className="font-display text-2xl">Add a party</h2>
         <p className="mt-1 text-xs text-ink-soft">
           A “party” is a household or group that RSVPs together (e.g. a couple
@@ -463,19 +634,19 @@ export default function AdminPage() {
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
             placeholder='Party label, e.g. "The Smith Family"'
-            className="border border-ink-soft/25 bg-white px-3 py-2 text-sm outline-none focus:border-gold"
+            className="rounded-lg border border-ink-soft/25 bg-white px-3 py-2 text-sm outline-none focus:border-gold"
           />
           <textarea
             value={newGuests}
             onChange={(e) => setNewGuests(e.target.value)}
             placeholder={"John Smith\nJane Smith"}
             rows={3}
-            className="border border-ink-soft/25 bg-white px-3 py-2 text-sm outline-none focus:border-gold sm:row-span-2"
+            className="rounded-lg border border-ink-soft/25 bg-white px-3 py-2 text-sm outline-none focus:border-gold sm:row-span-2"
           />
           <select
             value={newInvite}
             onChange={(e) => setNewInvite(e.target.value as "full" | "evening")}
-            className="border border-ink-soft/25 bg-white px-3 py-2 text-sm outline-none focus:border-gold"
+            className="rounded-lg border border-ink-soft/25 bg-white px-3 py-2 text-sm outline-none focus:border-gold"
           >
             <option value="full">Invited to the full day</option>
             <option value="evening">Invited to the evening only</option>
@@ -483,7 +654,7 @@ export default function AdminPage() {
           <button
             type="submit"
             disabled={busy}
-            className="border border-sage-dark bg-sage-dark px-6 py-2 text-xs tracking-[0.2em] uppercase text-cream transition-all enabled:hover:bg-transparent enabled:hover:text-sage-dark disabled:opacity-40 sm:justify-self-start"
+            className="rounded-lg border border-sage-dark bg-sage-dark px-6 py-2 text-xs tracking-[0.2em] uppercase text-cream transition-all enabled:hover:bg-transparent enabled:hover:text-sage-dark disabled:opacity-40 sm:justify-self-start"
           >
             Add party
           </button>
@@ -503,17 +674,17 @@ function AddGuestInline({ onAdd }: { onAdd: (name: string) => void }) {
         onAdd(name.trim());
         setName("");
       }}
-      className="mt-3 flex gap-2 border-t border-ink-soft/10 pt-3"
+      className="mt-3 flex gap-2"
     >
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Add a guest to this party…"
-        className="flex-1 border border-ink-soft/25 bg-white px-3 py-1.5 text-sm outline-none focus:border-gold"
+        className="min-w-0 flex-1 rounded-lg border border-ink-soft/25 bg-white px-3 py-1.5 text-sm outline-none focus:border-gold"
       />
       <button
         type="submit"
-        className="border border-ink-soft/30 px-4 py-1.5 text-xs tracking-[0.15em] uppercase text-ink-soft hover:border-sage-dark hover:text-sage-dark"
+        className="rounded-lg border border-ink-soft/30 px-4 py-1.5 text-[0.65rem] tracking-[0.15em] uppercase text-ink-soft hover:border-sage-dark hover:text-sage-dark"
       >
         Add
       </button>
