@@ -28,11 +28,24 @@ automatically on first run — so it needs a host with a persistent filesystem
 ## Running with Docker (recommended for a home PC)
 
 With [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or
-Docker Engine) installed:
+Docker Engine) installed, create a file named `.env` in the project folder
+to set the admin password (Docker Compose picks it up automatically, and
+it's gitignored):
+
+```
+ADMIN_PASSWORD=pick-a-secret
+```
+
+Then:
 
 ```bash
-ADMIN_PASSWORD=pick-a-secret docker compose up -d --build
+docker compose up -d --build
 ```
+
+(Skipping the `.env` file also works — the password just falls back to the
+default `cainton-admin`. On Windows PowerShell, don't use the Linux-style
+`VAR=value command` prefix; use the `.env` file, or run
+`$env:ADMIN_PASSWORD = "pick-a-secret"` before `docker compose up`.)
 
 That's it — the site is on http://localhost:3000 and restarts automatically
 with your PC (`restart: unless-stopped`). All RSVPs are stored in
