@@ -10,7 +10,7 @@ interface PartyMember {
   id: number;
   full_name: string;
   menu: string;
-  previous: { attending: boolean; meal: string | null } | null;
+  previous: { attending: boolean; meals: Record<string, string> } | null;
 }
 
 interface Party {
@@ -35,7 +35,10 @@ type Step =
   | "details"
   | "done";
 
-type Answers = Record<number, { attending: boolean | null; meal: string | null }>;
+type Answers = Record<
+  number,
+  { attending: boolean | null; meals: Record<string, string> }
+>;
 
 /* ---------- shared UI bits ---------- */
 
@@ -120,8 +123,8 @@ export default function RsvpPage() {
     const initial: Answers = {};
     for (const m of p.members) {
       initial[m.id] = m.previous
-        ? { attending: m.previous.attending, meal: m.previous.meal }
-        : { attending: null, meal: null };
+        ? { attending: m.previous.attending, meals: m.previous.meals }
+        : { attending: null, meals: {} };
     }
     setAnswers(initial);
     setComment(p.previousComment ?? "");
@@ -189,12 +192,16 @@ export default function RsvpPage() {
   const attendingMembers =
     party?.members.filter((m) => answers[m.id]?.attending === true) ?? [];
   const anyAttending = attendingMembers.length > 0;
-  // Meal choices only apply to full-day guests (the sit-down wedding
-  // breakfast) — evening guests go straight to the note step
+  // Meal choices only apply to full-day guests (the sit-down lunch) —
+  // evening guests go straight to the note step
   const mealsApply = anyAttending && party?.inviteType === "full";
   const allMealsChosen =
     !mealsApply ||
-    attendingMembers.every((m) => answers[m.id]?.meal !== null);
+    attendingMembers.every((m) => {
+      const menu = site.menus.find((mn) => mn.id === m.menu) ?? site.menus[0];
+      const picks = answers[m.id]?.meals ?? {};
+      return menu.courses.every((c) => picks[c.id]);
+    });
 
   async function submit() {
     if (!party || busy) return;
@@ -212,7 +219,7 @@ export default function RsvpPage() {
           answers: party.members.map((m) => ({
             guestId: m.id,
             attending: answers[m.id]?.attending === true,
-            meal: answers[m.id]?.meal ?? null,
+            meals: answers[m.id]?.meals ?? {},
           })),
         }),
       });
@@ -421,10 +428,10 @@ export default function RsvpPage() {
           }
         >
           {mealsApply ? (
-            <div className="space-y-10">
+            <div className="space-y-12">
               {attendingMembers.map((m) => {
                 // The menu is assigned by the couple (via the admin
-                // dashboard) — guests choose a dish from their menu only
+                // dashboard) — guests choose from their menu only
                 const guestMenu =
                   site.menus.find((menu) => menu.id === m.menu) ??
                   site.menus[0];
@@ -434,50 +441,57 @@ export default function RsvpPage() {
                       {m.full_name}
                     </p>
                     {guestMenu.id !== "adult" && (
-                      <p className="mb-3 text-center text-[0.65rem] tracking-[0.25em] uppercase text-gold">
+                      <p className="mb-2 text-center text-[0.65rem] tracking-[0.25em] uppercase text-gold">
                         {guestMenu.label}
                       </p>
                     )}
-                    <div className="mt-3 space-y-3">
-                      {guestMenu.mealOptions.map((meal) => {
-                        const selected = answers[m.id]?.meal === meal.id;
-                        return (
-                          <button
-                            key={meal.id}
-                            type="button"
-                            onClick={() =>
-                              setAnswers((prev) => ({
-                                ...prev,
-                                [m.id]: { ...prev[m.id], meal: meal.id },
-                              }))
-                            }
-                            className={`relative block w-full border p-4 text-left transition-all duration-200 ${
-                              selected
-                                ? "border-sage-dark bg-sage-light"
-                                : "border-ink-soft/20 bg-white/60 hover:border-sage-dark/60"
-                            }`}
-                          >
-                            {(meal.vegetarian || meal.glutenFree) && (
-                              <span
-                                title={meal.vegetarian ? "Vegetarian" : "Gluten-free"}
-                                aria-label={
-                                  meal.vegetarian ? "Vegetarian" : "Gluten-free"
-                                }
-                                className="absolute top-2.5 right-2.5 flex h-6 min-w-6 items-center justify-center rounded-full border border-sage-dark px-1 text-[0.6rem] font-medium text-sage-dark"
-                              >
-                                {meal.vegetarian ? "V" : "GF"}
-                              </span>
-                            )}
-                            <span className="font-display block pr-8 text-lg">
-                              {selected ? "✓ " : ""}
-                              {meal.label}
-                            </span>
-                            <span className="mt-1 block pr-8 text-xs leading-relaxed text-ink-soft">
-                              {meal.description}
-                            </span>
-                          </button>
-                        );
-                      })}
+                    <div className="mt-3 space-y-6">
+                      {guestMenu.courses.map((course) => (
+                        <div key={course.id}>
+                          <p className="mb-2 text-center text-[0.65rem] tracking-[0.3em] uppercase text-ink-soft">
+                            {course.label}
+                          </p>
+                          <div className="space-y-2">
+                            {course.options.map((dish) => {
+                              const selected =
+                                answers[m.id]?.meals?.[course.id] === dish.id;
+                              return (
+                                <button
+                                  key={dish.id}
+                                  type="button"
+                                  onClick={() =>
+                                    setAnswers((prev) => ({
+                                      ...prev,
+                                      [m.id]: {
+                                        ...prev[m.id],
+                                        meals: {
+                                          ...prev[m.id]?.meals,
+                                          [course.id]: dish.id,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className={`block w-full border p-3.5 text-left transition-all duration-200 ${
+                                    selected
+                                      ? "border-sage-dark bg-sage-light"
+                                      : "border-ink-soft/20 bg-white/60 hover:border-sage-dark/60"
+                                  }`}
+                                >
+                                  <span className="font-display block text-lg leading-snug">
+                                    {selected ? "✓ " : ""}
+                                    {dish.label}
+                                  </span>
+                                  {dish.description && (
+                                    <span className="mt-0.5 block text-xs leading-relaxed text-ink-soft">
+                                      {dish.description}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 );
@@ -537,7 +551,7 @@ export default function RsvpPage() {
             </PrimaryButton>
             {!allMealsChosen && (
               <p className="mt-3 text-center text-xs text-ink-soft">
-                Please choose a meal for each attending guest.
+                Please choose every course for each attending guest.
               </p>
             )}
           </div>

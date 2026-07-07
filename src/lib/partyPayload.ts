@@ -1,4 +1,5 @@
 import { partyOf, responsesForParty, commentForParty } from "@/lib/db";
+import { parseMeals } from "@/lib/site";
 
 /** Shape of a party as sent to the RSVP flow on the client. */
 export function buildPartyPayload(guestId: number) {
@@ -17,7 +18,9 @@ export function buildPartyPayload(guestId: number) {
         id: m.id,
         full_name: m.full_name,
         menu: m.menu,
-        previous: r ? { attending: r.attending === 1, meal: r.meal } : null,
+        previous: r
+          ? { attending: r.attending === 1, meals: parseMeals(r.meal) }
+          : null,
       };
     }),
     previousComment: comment?.comment ?? null,

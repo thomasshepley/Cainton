@@ -16,7 +16,7 @@ export interface Guest {
   id: number;
   party_id: number;
   full_name: string;
-  /** Which wedding-breakfast menu this guest is on (site.ts menus) */
+  /** Which wedding-lunch menu this guest is on (site.ts menus) */
   menu: string;
 }
 
@@ -103,6 +103,14 @@ function initDb(): Database.Database {
   if (!guestCols.some((c) => c.name === "menu")) {
     db.exec("ALTER TABLE guests ADD COLUMN menu TEXT NOT NULL DEFAULT 'adult'");
   }
+  // Menus were split into adult/kids coeliac variants
+  db.exec("UPDATE guests SET menu = 'coeliac-adult' WHERE menu = 'coeliac'");
+  // Meal choices moved from a single dish id to a JSON object of
+  // course -> dish; legacy single-dish values can't be mapped, so those
+  // guests show as "no meal chosen" and can re-pick (or be set by admin)
+  db.exec(
+    "UPDATE responses SET meal = NULL WHERE meal IS NOT NULL AND meal NOT LIKE '{%'"
+  );
 
   // Seed the guest list on first run
   const count = db.prepare("SELECT COUNT(*) AS n FROM guests").get() as {

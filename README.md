@@ -124,18 +124,23 @@ RSVP together. Each party has a label and its guests:
 
 `"invite"` is optional: omit it (or use `"full"`) for guests invited to the
 whole day; `"evening"` marks evening-reception-only parties. Evening guests
-see that on their RSVP and skip the meal-choice step (no wedding breakfast).
+see that on their RSVP and skip the meal-choice step (no wedding lunch).
 You can also switch a party between full day and evening at any time from
 the admin dashboard.
 
 ### Menus
 
-There are four wedding-breakfast menus, defined in `src/lib/site.ts`:
-Standard (default), Vegetarian, Coeliac, and Children's. Every guest starts
-on the Standard menu; assign a different menu per guest from the admin
-dashboard (guests cannot switch menus themselves). On the RSVP page each
-guest picks a dish from their assigned menu, and the dashboard's meal
-counts are grouped by menu for the caterer.
+There are five wedding-lunch menus, defined in `src/lib/site.ts`:
+Adult (default), Kids, Adult Coeliac, Kids Coeliac, and Vegetarian.
+Each menu has three courses — starter, main, dessert — and guests choose
+one dish per course. The Adult Coeliac and Vegetarian menus currently
+contain "TBC" placeholder dishes; replace them in `site.ts` when the
+venue confirms (the structure to copy is right there).
+
+Every guest starts on the Adult menu; assign a different menu per guest
+from the admin dashboard (guests cannot switch menus themselves). The
+dashboard's meal counts are grouped by menu and course for the caterer,
+and the CSV export has a column per course.
 
 The seed file is only read when the database is empty (first run). After
 that, manage guests from the admin dashboard — or delete `data/wedding.db`

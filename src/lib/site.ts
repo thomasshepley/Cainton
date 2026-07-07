@@ -19,127 +19,267 @@ export const site = {
   },
   /**
    * The wedding-lunch menus. Every guest is on the "adult" menu by
-   * default; they (or you, from the admin panel) can switch them to a
-   * different menu, and they then choose a dish from that menu.
-   * Meal ids must be unique across ALL menus.
+   * default; assign a different menu per guest from the admin dashboard.
+   * Each menu has courses (starter/main/dessert) and guests pick one
+   * dish per course. Dish ids must be unique across ALL menus.
    */
   menus: [
     {
       id: "adult",
-      label: "Standard Menu",
-      mealOptions: [
+      label: "Adult Menu",
+      courses: [
         {
-          id: "beef",
-          label: "Braised Short Rib",
-          description:
-            "Red wine braised beef, whipped potatoes, seasonal vegetables",
-          vegetarian: false,
-          glutenFree: false,
+          id: "starter",
+          label: "Starter",
+          options: [
+            {
+              id: "ad-st-soup",
+              label: "Spiced Parsnip Soup",
+              description: "With parsnip crisp",
+            },
+            {
+              id: "ad-st-prawn",
+              label: "Garlic King Prawn Parcel",
+              description: "Sautéed leeks, lemon and chive butter sauce",
+            },
+          ],
         },
         {
-          id: "chicken",
-          label: "Herb Roasted Chicken",
-          description: "Lemon-thyme jus, roasted fingerlings, haricots verts",
-          vegetarian: false,
-          glutenFree: false,
+          id: "main",
+          label: "Main",
+          options: [
+            {
+              id: "ad-mn-lamb",
+              label: "Slow-Braised Lamb Shank",
+              description:
+                "Creamed potatoes, pancetta, green beans and confit carrots",
+            },
+            {
+              id: "ad-mn-chicken",
+              label: "Corn-Fed Chicken Supreme",
+              description:
+                "Fondant potatoes, squash purée, asparagus, king oyster mushrooms and brandy jus",
+            },
+          ],
         },
         {
-          id: "fish",
-          label: "Pan-Seared Salmon",
-          description: "Citrus beurre blanc, wild rice pilaf, grilled asparagus",
-          vegetarian: false,
-          glutenFree: false,
+          id: "dessert",
+          label: "Dessert",
+          options: [
+            {
+              id: "ad-ds-chocolate",
+              label: "Chocolate Trio",
+              description:
+                "'After Eight' chocolate brownie, chocolate fondant, chocolate crisp and mint ice cream",
+            },
+            {
+              id: "ad-ds-eton",
+              label: "Eton Mess Cheesecake",
+              description: "Poached fruit and Chantilly cream",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: "children",
+      label: "Kids Menu",
+      courses: [
+        {
+          id: "starter",
+          label: "Starter",
+          options: [
+            {
+              id: "kd-st-flatbread",
+              label: "Garlic Flatbread",
+              description: "With or without cheese — let us know in the notes",
+            },
+            {
+              id: "kd-st-soup",
+              label: "Homemade Tomato Soup",
+              description: "",
+            },
+            {
+              id: "kd-st-hummus",
+              label: "Hummus & Vegetable Crudités",
+              description: "",
+            },
+          ],
         },
         {
-          id: "vegetarian",
-          label: "Wild Mushroom Risotto",
-          description: "Parmesan, truffle oil, crispy sage",
-          vegetarian: true,
-          glutenFree: false,
+          id: "main",
+          label: "Main",
+          options: [
+            {
+              id: "kd-mn-burger",
+              label: "4oz Beef Burger with Fries",
+              description: "With or without cheese — let us know in the notes",
+            },
+            {
+              id: "kd-mn-pasta",
+              label: "Pasta in Tomato & Basil Sauce",
+              description: "",
+            },
+            {
+              id: "kd-mn-chicken",
+              label: "Chicken Strips",
+              description: "Served with fries and peas",
+            },
+          ],
+        },
+        {
+          id: "dessert",
+          label: "Dessert",
+          options: [
+            {
+              id: "kd-ds-icecream",
+              label: "Ice Cream",
+              description: "Vanilla, chocolate or strawberry",
+            },
+            {
+              id: "kd-ds-brownie",
+              label: "Triple Chocolate Brownie",
+              description: "Served with ice cream",
+            },
+            {
+              id: "kd-ds-toffee",
+              label: "Sticky Toffee Pudding",
+              description: "Served with warm custard",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: "coeliac-adult",
+      label: "Adult Coeliac Menu",
+      // TODO: replace these placeholders with the venue's gluten-free
+      // adult dishes when confirmed — same shape as the menus above.
+      courses: [
+        {
+          id: "starter",
+          label: "Starter",
+          options: [
+            {
+              id: "ca-st-tbc",
+              label: "Gluten-Free Starter (TBC)",
+              description: "Being finalised with the venue",
+            },
+          ],
+        },
+        {
+          id: "main",
+          label: "Main",
+          options: [
+            {
+              id: "ca-mn-tbc",
+              label: "Gluten-Free Main (TBC)",
+              description: "Being finalised with the venue",
+            },
+          ],
+        },
+        {
+          id: "dessert",
+          label: "Dessert",
+          options: [
+            {
+              id: "ca-ds-tbc",
+              label: "Gluten-Free Dessert (TBC)",
+              description: "Being finalised with the venue",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: "coeliac-kids",
+      label: "Kids Coeliac Menu",
+      courses: [
+        {
+          id: "starter",
+          label: "Starter",
+          options: [
+            {
+              id: "ck-st-soup",
+              label: "Homemade Tomato Soup",
+              description: "Gluten-free",
+            },
+            {
+              id: "ck-st-hummus",
+              label: "Hummus & Vegetable Crudités",
+              description: "Gluten-free",
+            },
+          ],
+        },
+        {
+          id: "main",
+          label: "Main",
+          options: [
+            {
+              id: "ck-mn-burger",
+              label: "4oz Beef Burger with Fries",
+              description:
+                "Gluten-free — with or without cheese, let us know in the notes",
+            },
+            {
+              id: "ck-mn-chicken",
+              label: "Grilled Chicken Breast",
+              description:
+                "Gluten-free — served with fries or mash and garden peas",
+            },
+          ],
+        },
+        {
+          id: "dessert",
+          label: "Dessert",
+          options: [
+            {
+              id: "ck-ds-icecream",
+              label: "Ice Cream",
+              description: "Vanilla, chocolate or strawberry — gluten-free",
+            },
+          ],
         },
       ],
     },
     {
       id: "vegetarian",
       label: "Vegetarian Menu",
-      mealOptions: [
+      // TODO: replace these placeholders with the vegetarian dishes when
+      // confirmed — same shape as the menus above.
+      courses: [
         {
-          id: "veg-wellington",
-          label: "Roasted Squash Wellington",
-          description: "Butternut squash, spinach & chestnut in golden pastry",
-          vegetarian: true,
-          glutenFree: false,
+          id: "starter",
+          label: "Starter",
+          options: [
+            {
+              id: "vg-st-tbc",
+              label: "Vegetarian Starter (TBC)",
+              description: "Being finalised with the venue",
+            },
+          ],
         },
         {
-          id: "veg-risotto",
-          label: "Wild Mushroom Risotto",
-          description: "Parmesan-style cheese, truffle oil, crispy sage",
-          vegetarian: true,
-          glutenFree: false,
+          id: "main",
+          label: "Main",
+          options: [
+            {
+              id: "vg-mn-tbc",
+              label: "Vegetarian Main (TBC)",
+              description: "Being finalised with the venue",
+            },
+          ],
         },
         {
-          id: "veg-parmigiana",
-          label: "Aubergine Parmigiana",
-          description: "Layered aubergine, rich tomato sugo, basil, mozzarella",
-          vegetarian: true,
-          glutenFree: false,
-        },
-      ],
-    },
-    {
-      id: "coeliac",
-      label: "Coeliac Menu",
-      mealOptions: [
-        {
-          id: "gf-beef",
-          label: "Braised Short Rib (GF)",
-          description:
-            "Red wine braised beef, whipped potatoes, seasonal vegetables — fully gluten-free",
-          vegetarian: false,
-          glutenFree: true,
-        },
-        {
-          id: "gf-chicken",
-          label: "Roast Chicken Breast (GF)",
-          description:
-            "Lemon-thyme jus, roasted potatoes, green beans — fully gluten-free",
-          vegetarian: false,
-          glutenFree: true,
-        },
-        {
-          id: "gf-salmon",
-          label: "Baked Salmon Fillet (GF)",
-          description:
-            "Citrus butter sauce, new potatoes, asparagus — fully gluten-free",
-          vegetarian: false,
-          glutenFree: true,
-        },
-      ],
-    },
-    {
-      id: "children",
-      label: "Children's Menu",
-      mealOptions: [
-        {
-          id: "kids-goujons",
-          label: "Chicken Goujons & Chips",
-          description: "With peas or beans and a little pot of ketchup",
-          vegetarian: false,
-          glutenFree: false,
-        },
-        {
-          id: "kids-sausage",
-          label: "Sausage & Mash",
-          description: "Pork sausages, buttery mash, gravy",
-          vegetarian: false,
-          glutenFree: false,
-        },
-        {
-          id: "kids-pasta",
-          label: "Tomato Pasta",
-          description: "Penne in a mild tomato sauce with cheese on top",
-          vegetarian: true,
-          glutenFree: false,
+          id: "dessert",
+          label: "Dessert",
+          options: [
+            {
+              id: "vg-ds-tbc",
+              label: "Vegetarian Dessert (TBC)",
+              description: "Being finalised with the venue",
+            },
+          ],
         },
       ],
     },
@@ -147,7 +287,6 @@ export const site = {
 } as const;
 
 export type Menu = (typeof site.menus)[number];
-export type MealOption = Menu["mealOptions"][number];
 
 /** Lookup helpers used by the app and API */
 export const MENU_IDS = new Set<string>(site.menus.map((m) => m.id));
@@ -157,17 +296,56 @@ export function menuById(id: string): Menu {
   return site.menus.find((m) => m.id === id) ?? site.menus[0];
 }
 
-/** meal id -> label, across every menu */
-export const MEAL_LABELS = new Map<string, string>(
+/** dish id -> label, across every menu and course */
+export const DISH_LABELS = new Map<string, string>(
   site.menus.flatMap((menu) =>
-    menu.mealOptions.map((o): [string, string] => [o.id, o.label])
+    menu.courses.flatMap((course) =>
+      course.options.map((o): [string, string] => [o.id, o.label])
+    )
   )
 );
 
-/** menu id -> set of its meal ids (for validation) */
-export const MENU_MEALS = new Map<string, Set<string>>(
+/** menu id -> course id -> set of dish ids (for validation) */
+export const MENU_COURSE_DISHES = new Map<string, Map<string, Set<string>>>(
   site.menus.map((menu) => [
     menu.id,
-    new Set<string>(menu.mealOptions.map((o) => o.id)),
+    new Map(
+      menu.courses.map((course) => [
+        course.id,
+        new Set<string>(course.options.map((o) => o.id)),
+      ])
+    ),
   ])
 );
+
+/** Every course id in display order (union across menus) */
+export const COURSE_ORDER: { id: string; label: string }[] = (() => {
+  const seen = new Map<string, string>();
+  for (const menu of site.menus) {
+    for (const course of menu.courses) {
+      if (!seen.has(course.id)) seen.set(course.id, course.label);
+    }
+  }
+  return [...seen.entries()].map(([id, label]) => ({ id, label }));
+})();
+
+/**
+ * A guest's meal choices are stored as a JSON object mapping course id
+ * to dish id, e.g. {"starter":"ad-st-soup","main":"ad-mn-lamb"}.
+ * Parses defensively: legacy or malformed values become {}.
+ */
+export function parseMeals(meal: string | null | undefined): Record<string, string> {
+  if (!meal || !meal.startsWith("{")) return {};
+  try {
+    const parsed = JSON.parse(meal) as unknown;
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
+      return {};
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === "string") out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { site, menuById } from "@/lib/site";
+import { site, menuById, parseMeals } from "@/lib/site";
 
 interface AdminRow {
   guest_id: number;
@@ -179,7 +179,9 @@ export default function AdminPage() {
     };
     const meals = new Map<string, number>();
     for (const r of lists.attending) {
-      if (r.meal) meals.set(r.meal, (meals.get(r.meal) ?? 0) + 1);
+      for (const dishId of Object.values(parseMeals(r.meal))) {
+        meals.set(dishId, (meals.get(dishId) ?? 0) + 1);
+      }
     }
     const responded = lists.attending.length + lists.declined.length;
     return { lists, meals, responded };
@@ -373,25 +375,42 @@ export default function AdminPage() {
           <h2 className="text-[0.65rem] tracking-[0.25em] uppercase text-ink-soft">
             Meal counts
           </h2>
-          <div className="mt-2 space-y-2">
+          <div className="mt-2 space-y-3">
             {site.menus.map((menu) => {
-              const counted = menu.mealOptions.filter((o) =>
-                stats.meals.has(o.id)
-              );
-              if (counted.length === 0) return null;
+              const courses = menu.courses
+                .map((course) => ({
+                  course,
+                  counted: course.options.filter((o) => stats.meals.has(o.id)),
+                }))
+                .filter((c) => c.counted.length > 0);
+              if (courses.length === 0) return null;
               return (
-                <div key={menu.id} className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
-                  <p className="w-full text-[0.6rem] tracking-[0.2em] uppercase text-gold sm:w-32">
+                <div key={menu.id}>
+                  <p className="text-[0.6rem] tracking-[0.2em] uppercase text-gold">
                     {menu.label}
                   </p>
-                  {counted.map((o) => (
-                    <p key={o.id} className="text-sm">
-                      <span className="font-display text-lg">
-                        {stats.meals.get(o.id)}
-                      </span>{" "}
-                      <span className="text-xs text-ink-soft">× {o.label}</span>
-                    </p>
-                  ))}
+                  <div className="mt-1 space-y-1">
+                    {courses.map(({ course, counted }) => (
+                      <div
+                        key={course.id}
+                        className="flex flex-wrap items-baseline gap-x-5 gap-y-0.5"
+                      >
+                        <p className="w-16 text-[0.6rem] tracking-[0.15em] uppercase text-ink-soft/70">
+                          {course.label}
+                        </p>
+                        {counted.map((o) => (
+                          <p key={o.id} className="text-sm">
+                            <span className="font-display text-lg">
+                              {stats.meals.get(o.id)}
+                            </span>{" "}
+                            <span className="text-xs text-ink-soft">
+                              × {o.label}
+                            </span>
+                          </p>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               );
             })}
@@ -507,7 +526,7 @@ export default function AdminPage() {
                                   action: "setResponse",
                                   guestId: r.guest_id,
                                   attending: v === "none" ? null : v === "yes",
-                                  meal: v === "yes" ? r.meal : null,
+                                  meals: v === "yes" ? parseMeals(r.meal) : {},
                                   menu: r.menu,
                                 })
                               }
@@ -538,7 +557,8 @@ export default function AdminPage() {
                                       r.attending === null
                                         ? null
                                         : r.attending === 1,
-                                    meal: null,
+                                    // dishes must belong to the new menu
+                                    meals: {},
                                     menu: e.target.value,
                                   })
                                 }
@@ -551,31 +571,41 @@ export default function AdminPage() {
                                   </option>
                                 ))}
                               </select>
-                              {r.attending === 1 && (
-                                <select
-                                  value={r.meal ?? ""}
-                                  onChange={(e) =>
-                                    action({
-                                      action: "setResponse",
-                                      guestId: r.guest_id,
-                                      attending: true,
-                                      meal: e.target.value || null,
-                                      menu: r.menu,
-                                    })
-                                  }
-                                  disabled={busy}
-                                  className={`${SELECT_CLASS} ${
-                                    r.meal === null ? "border-gold text-gold" : ""
-                                  }`}
-                                >
-                                  <option value="">Choose meal…</option>
-                                  {menuById(r.menu).mealOptions.map((m) => (
-                                    <option key={m.id} value={m.id}>
-                                      {m.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              )}
+                              {r.attending === 1 &&
+                                menuById(r.menu).courses.map((course) => {
+                                  const picks = parseMeals(r.meal);
+                                  const current = picks[course.id] ?? "";
+                                  return (
+                                    <select
+                                      key={course.id}
+                                      value={current}
+                                      onChange={(e) => {
+                                        const next = { ...picks };
+                                        if (e.target.value)
+                                          next[course.id] = e.target.value;
+                                        else delete next[course.id];
+                                        action({
+                                          action: "setResponse",
+                                          guestId: r.guest_id,
+                                          attending: true,
+                                          meals: next,
+                                          menu: r.menu,
+                                        });
+                                      }}
+                                      disabled={busy}
+                                      className={`${SELECT_CLASS} ${
+                                        current === "" ? "border-gold text-gold" : ""
+                                      }`}
+                                    >
+                                      <option value="">{course.label}…</option>
+                                      {course.options.map((o) => (
+                                        <option key={o.id} value={o.id}>
+                                          {o.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  );
+                                })}
                             </div>
                           )}
                         </div>

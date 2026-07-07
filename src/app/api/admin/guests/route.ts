@@ -8,7 +8,7 @@ import {
   setPartyInviteType,
 } from "@/lib/db";
 import { isAdmin } from "@/lib/adminAuth";
-import { MENU_IDS, MENU_MEALS } from "@/lib/site";
+import { MENU_IDS, MENU_COURSE_DISHES } from "@/lib/site";
 
 /**
  * Admin guest-list management.
@@ -16,7 +16,8 @@ import { MENU_IDS, MENU_MEALS } from "@/lib/site";
  * POST { action: "addGuest", partyId, name }
  * POST { action: "deleteGuest", guestId }
  * POST { action: "deleteParty", partyId }
- * POST { action: "setResponse", guestId, attending: true|false|null, meal, menu }
+ * POST { action: "setResponse", guestId, attending: true|false|null,
+ *        meals: { courseId: dishId }, menu }
  * POST { action: "setInviteType", partyId, inviteType: "full"|"evening" }
  */
 export async function POST(req: NextRequest) {
@@ -78,15 +79,29 @@ export async function POST(req: NextRequest) {
         typeof body.menu === "string" && MENU_IDS.has(body.menu)
           ? body.menu
           : undefined;
-      // A meal is only accepted if it belongs to the guest's menu
-      const menuMeals = menu ? MENU_MEALS.get(menu) : undefined;
-      const meal =
-        typeof body.meal === "string" &&
-        (menuMeals
-          ? menuMeals.has(body.meal)
-          : [...MENU_MEALS.values()].some((s) => s.has(body.meal as string)))
-          ? body.meal
-          : null;
+      // Keep only picks that are valid dishes for the guest's menu.
+      // Admins may set courses one at a time, so partial picks are fine.
+      const courseDishes = menu ? MENU_COURSE_DISHES.get(menu) : undefined;
+      let meal: string | null = null;
+      if (
+        typeof body.meals === "object" &&
+        body.meals !== null &&
+        !Array.isArray(body.meals) &&
+        courseDishes
+      ) {
+        const cleaned: Record<string, string> = {};
+        for (const [courseId, dishId] of Object.entries(
+          body.meals as Record<string, unknown>
+        )) {
+          if (
+            typeof dishId === "string" &&
+            courseDishes.get(courseId)?.has(dishId)
+          ) {
+            cleaned[courseId] = dishId;
+          }
+        }
+        if (Object.keys(cleaned).length > 0) meal = JSON.stringify(cleaned);
+      }
       if (!setGuestResponse(guestId, attending, meal, menu)) {
         return NextResponse.json({ error: "Guest not found" }, { status: 404 });
       }

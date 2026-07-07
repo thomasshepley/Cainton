@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getParty, guestsForParty, saveRsvp } from "@/lib/db";
-import { DEFAULT_MENU, MENU_MEALS } from "@/lib/site";
+import { DEFAULT_MENU, menuById, MENU_COURSE_DISHES } from "@/lib/site";
 
 /**
  * POST an RSVP for a whole party.
  * {
  *   partyId, submittedBy, comment, songRequest,
- *   answers: [{ guestId, attending, meal }]
+ *   answers: [{ guestId, attending, meals: { starter, main, dessert } }]
  * }
- * Meal choices apply to full-day parties only (the sit-down wedding
- * breakfast); evening-only guests never pick a meal. Each guest's meal
- * must come from the menu the couple assigned them (adult by default;
- * vegetarian/coeliac/children set via the admin dashboard) — guests
- * cannot switch menus themselves.
+ * Meal choices apply to full-day parties only (the sit-down lunch);
+ * evening-only guests never pick meals. Each attending
+ * guest must choose one dish per course, all from the menu the couple
+ * assigned them (adult by default; set via the admin dashboard) —
+ * guests cannot switch menus themselves.
  */
 export async function POST(req: NextRequest) {
   let body: {
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   const answers: { guestId: number; attending: boolean; meal: string | null }[] =
     [];
   for (const raw of body.answers as unknown[]) {
-    const a = raw as { guestId?: unknown; attending?: unknown; meal?: unknown };
+    const a = raw as { guestId?: unknown; attending?: unknown; meals?: unknown };
     const guestId = Number(a.guestId);
     if (!Number.isInteger(guestId) || guestId <= 0) {
       return NextResponse.json({ error: "Invalid guest" }, { status: 400 });
@@ -64,15 +64,27 @@ export async function POST(req: NextRequest) {
     const attending = a.attending === true;
     let meal: string | null = null;
     if (attending && mealRequired) {
-      const menu = guestMenus.get(guestId) ?? DEFAULT_MENU;
-      const menuMeals = MENU_MEALS.get(menu) ?? MENU_MEALS.get(DEFAULT_MENU);
-      if (typeof a.meal !== "string" || !menuMeals?.has(a.meal)) {
-        return NextResponse.json(
-          { error: "Please choose a meal for each attending guest." },
-          { status: 400 }
-        );
+      const menuId = guestMenus.get(guestId) ?? DEFAULT_MENU;
+      const courseDishes = MENU_COURSE_DISHES.get(menuId);
+      const picks =
+        typeof a.meals === "object" && a.meals !== null && !Array.isArray(a.meals)
+          ? (a.meals as Record<string, unknown>)
+          : {};
+      // One valid dish per course of the guest's menu, nothing extra
+      const canonical: Record<string, string> = {};
+      for (const course of menuById(menuId).courses) {
+        const pick = picks[course.id];
+        if (typeof pick !== "string" || !courseDishes?.get(course.id)?.has(pick)) {
+          return NextResponse.json(
+            {
+              error: `Please choose a ${course.label.toLowerCase()} for each attending guest.`,
+            },
+            { status: 400 }
+          );
+        }
+        canonical[course.id] = pick;
       }
-      meal = a.meal;
+      meal = JSON.stringify(canonical);
     }
     answers.push({ guestId, attending, meal });
   }
