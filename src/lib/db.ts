@@ -117,23 +117,26 @@ function initDb(): Database.Database {
     n: number;
   };
   if (count.n === 0 && fs.existsSync(SEED_PATH)) {
+    // Guests may be plain names or { name, menu } objects
     const seed = JSON.parse(fs.readFileSync(SEED_PATH, "utf8")) as {
       label: string;
-      guests: string[];
+      guests: (string | { name: string; menu?: string })[];
       invite?: string;
     }[];
     const insertParty = db.prepare(
       "INSERT INTO parties (label, invite_type) VALUES (?, ?)"
     );
     const insertGuest = db.prepare(
-      "INSERT INTO guests (party_id, full_name) VALUES (?, ?)"
+      "INSERT INTO guests (party_id, full_name, menu) VALUES (?, ?, ?)"
     );
     const tx = db.transaction(() => {
       for (const party of seed) {
         const inviteType = party.invite === "evening" ? "evening" : "full";
         const { lastInsertRowid } = insertParty.run(party.label, inviteType);
-        for (const name of party.guests) {
-          insertGuest.run(lastInsertRowid, name.trim());
+        for (const g of party.guests) {
+          const name = (typeof g === "string" ? g : g.name).trim();
+          const menu = typeof g === "string" ? "adult" : (g.menu ?? "adult");
+          if (name) insertGuest.run(lastInsertRowid, name, menu);
         }
       }
     });

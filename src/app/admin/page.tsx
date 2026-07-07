@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { site, menuById, parseMeals } from "@/lib/site";
+import { site, menuById, parseMeals, DISH_LABELS } from "@/lib/site";
 
 interface AdminRow {
   guest_id: number;
@@ -93,6 +93,18 @@ export default function AdminPage() {
   const [busy, setBusy] = useState(false);
   const [openParties, setOpenParties] = useState<Set<number>>(new Set());
   const [openStat, setOpenStat] = useState<StatKey | null>(null);
+  // Meal/menu selects are hidden behind an explicit "Edit meals" toggle
+  // so a stray click can't change someone's choices
+  const [editingMeals, setEditingMeals] = useState<Set<number>>(new Set());
+
+  function toggleEditingMeals(guestId: number) {
+    setEditingMeals((prev) => {
+      const next = new Set(prev);
+      if (next.has(guestId)) next.delete(guestId);
+      else next.add(guestId);
+      return next;
+    });
+  }
 
   // New party form
   const [newLabel, setNewLabel] = useState("");
@@ -545,69 +557,120 @@ export default function AdminPage() {
                               ✕
                             </button>
                           </div>
-                          {inviteType === "full" && (
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                              <select
-                                value={r.menu}
-                                onChange={(e) =>
-                                  action({
-                                    action: "setResponse",
-                                    guestId: r.guest_id,
-                                    attending:
-                                      r.attending === null
-                                        ? null
-                                        : r.attending === 1,
-                                    // dishes must belong to the new menu
-                                    meals: {},
-                                    menu: e.target.value,
-                                  })
-                                }
-                                disabled={busy}
-                                className={SELECT_CLASS}
-                              >
-                                {site.menus.map((m) => (
-                                  <option key={m.id} value={m.id}>
-                                    {m.label}
-                                  </option>
-                                ))}
-                              </select>
-                              {r.attending === 1 &&
-                                menuById(r.menu).courses.map((course) => {
-                                  const picks = parseMeals(r.meal);
-                                  const current = picks[course.id] ?? "";
-                                  return (
-                                    <select
-                                      key={course.id}
-                                      value={current}
-                                      onChange={(e) => {
-                                        const next = { ...picks };
-                                        if (e.target.value)
-                                          next[course.id] = e.target.value;
-                                        else delete next[course.id];
-                                        action({
-                                          action: "setResponse",
-                                          guestId: r.guest_id,
-                                          attending: true,
-                                          meals: next,
-                                          menu: r.menu,
-                                        });
-                                      }}
-                                      disabled={busy}
-                                      className={`${SELECT_CLASS} ${
-                                        current === "" ? "border-gold text-gold" : ""
-                                      }`}
-                                    >
-                                      <option value="">{course.label}…</option>
-                                      {course.options.map((o) => (
-                                        <option key={o.id} value={o.id}>
-                                          {o.label}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  );
-                                })}
-                            </div>
-                          )}
+                          {inviteType === "full" &&
+                            (editingMeals.has(r.guest_id) ? (
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <select
+                                  value={r.menu}
+                                  onChange={(e) =>
+                                    action({
+                                      action: "setResponse",
+                                      guestId: r.guest_id,
+                                      attending:
+                                        r.attending === null
+                                          ? null
+                                          : r.attending === 1,
+                                      // dishes must belong to the new menu
+                                      meals: {},
+                                      menu: e.target.value,
+                                    })
+                                  }
+                                  disabled={busy}
+                                  className={SELECT_CLASS}
+                                >
+                                  {site.menus.map((m) => (
+                                    <option key={m.id} value={m.id}>
+                                      {m.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                {r.attending === 1 &&
+                                  menuById(r.menu).courses.map((course) => {
+                                    const picks = parseMeals(r.meal);
+                                    const current = picks[course.id] ?? "";
+                                    return (
+                                      <select
+                                        key={course.id}
+                                        value={current}
+                                        onChange={(e) => {
+                                          const next = { ...picks };
+                                          if (e.target.value)
+                                            next[course.id] = e.target.value;
+                                          else delete next[course.id];
+                                          action({
+                                            action: "setResponse",
+                                            guestId: r.guest_id,
+                                            attending: true,
+                                            meals: next,
+                                            menu: r.menu,
+                                          });
+                                        }}
+                                        disabled={busy}
+                                        className={`${SELECT_CLASS} ${
+                                          current === "" ? "border-gold text-gold" : ""
+                                        }`}
+                                      >
+                                        <option value="">{course.label}…</option>
+                                        {course.options.map((o) =>
+                                          o.variants?.length ? (
+                                            o.variants.map((v) => (
+                                              <option key={v.id} value={v.id}>
+                                                {o.label} — {v.label.toLowerCase()}
+                                              </option>
+                                            ))
+                                          ) : (
+                                            <option key={o.id} value={o.id}>
+                                              {o.label}
+                                            </option>
+                                          )
+                                        )}
+                                      </select>
+                                    );
+                                  })}
+                                <button
+                                  onClick={() => toggleEditingMeals(r.guest_id)}
+                                  className="rounded-lg border border-sage-dark/40 px-3 py-1.5 text-[0.65rem] tracking-[0.15em] uppercase text-sage-dark hover:bg-sage-light"
+                                >
+                                  Done
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <p className="text-xs text-ink-soft">
+                                  <span className="text-ink-soft/70">
+                                    {menuById(r.menu).label}
+                                  </span>
+                                  {r.attending === 1 && (
+                                    <>
+                                      {" · "}
+                                    {(() => {
+                                        const picks = parseMeals(r.meal);
+                                        const chosen = menuById(r.menu)
+                                          .courses.map((c) =>
+                                            picks[c.id]
+                                              ? DISH_LABELS.get(picks[c.id])
+                                              : null
+                                          )
+                                          .filter(Boolean);
+                                        return chosen.length > 0 ? (
+                                          chosen.join(" · ")
+                                        ) : (
+                                          <span className="text-gold">
+                                            no meals chosen yet
+                                          </span>
+                                        );
+                                      })()}
+                                    </>
+                                  )}
+                                </p>
+                                <button
+                                  onClick={() => toggleEditingMeals(r.guest_id)}
+                                  className="text-[0.65rem] tracking-[0.15em] uppercase text-ink-soft underline-offset-4 hover:text-sage-dark hover:underline"
+                                >
+                                  Edit meals
+                                </button>
+                              </div>
+                            ))}
                         </div>
                       ))}
                     </div>

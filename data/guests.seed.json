@@ -1,36 +1,133 @@
 [
   {
-    "label": "The Shepley Family",
-    "guests": ["Thomas Shepley", "Chris Shepley", "Hayley Shepley", "Rebecca Gaze"]
+    "label": "Clayton Family (Lauren & Aaron)",
+    "guests": [
+      "Lauren Cain",
+      "Aaron Clayton",
+      { "name": "Hughie Clayton", "menu": "children" },
+      { "name": "Alfie Clayton", "menu": "children" }
+    ]
   },
   {
-    "label": "The Clarke Family",
-    "guests": ["Geoffrey Clarke", "Philippa Clarke", "Alfred Clarke"]
+    "label": "Cain Family",
+    "guests": [
+      "Kerry Cain",
+      "Greg Cain",
+      "Max Cain",
+      "Lily Cain",
+      "AJ Healy",
+      "Linda Cain"
+    ]
   },
   {
-    "label": "Alistair MacDonald & Guest",
-    "guests": ["Alistair MacDonald", "Guest of Alistair MacDonald"]
+    "label": "Shepley Family",
+    "guests": [
+      "Chris Shepley",
+      "Hayley Shepley",
+      "Thomas Shepley",
+      "Becky Gaze",
+      "Cathy Booth"
+    ]
   },
   {
-    "label": "The Thompsons",
-    "guests": ["Reginald Thompson", "Gwendolyn Thompson"]
+    "label": "Clayton Family (Lorraine & Chris)",
+    "guests": [
+      "Lorraine Clayton",
+      "Chris Clayton",
+      { "name": "Kailem Clayton", "menu": "children" },
+      { "name": "Orion Clayton", "menu": "children" },
+      "Sam Clayton",
+      "Ben Clayton",
+      "Callum Clayton",
+      "Ben Davies",
+      "Glynis Clayton"
+    ]
   },
   {
-    "label": "Katherine O'Brien & Michael Chen",
-    "guests": ["Katherine O'Brien", "Michael Chen"]
+    "label": "Curtis Family",
+    "guests": [
+      "Becca Cain",
+      "Nick Curtis",
+      { "name": "Teddy Curtis", "menu": "children" }
+    ]
   },
   {
-    "label": "The Shepherd Family",
-    "guests": ["Rupert Shepherd", "Matilda Shepherd", "Sebastian Shepherd"]
+    "label": "Fagg Family",
+    "guests": [
+      "Mike Fagg",
+      "Becky Fagg",
+      "Kim Fagg",
+      { "name": "Alana Fagg", "menu": "coeliac-kids" }
+    ]
   },
   {
-    "label": "Elizabeth Smythe",
-    "guests": ["Elizabeth Smythe"],
-    "invite": "evening"
+    "label": "Miskell Family",
+    "guests": [
+      "Jess Miskell",
+      "Adam Roscoe",
+      { "name": "Arnie Short", "menu": "children" }
+    ]
   },
   {
-    "label": "The Davies Family",
-    "guests": ["Rhys Davies", "Charlotte Davies"],
-    "invite": "evening"
+    "label": "Whittaker Family",
+    "guests": [
+      "Jay Whittaker",
+      "Chloe Whittaker",
+      "Oliver Whittaker",
+      { "name": "Marley Whittaker", "menu": "children" }
+    ]
+  },
+  {
+    "label": "Costello Family",
+    "guests": [
+      "Megan Costello",
+      "Brendan Costello",
+      { "name": "Pippa Costello", "menu": "children" },
+      { "name": "Duffy Costello", "menu": "children" }
+    ]
+  },
+  {
+    "label": "Cope Family",
+    "guests": ["Joanne Cope", "Tony Cope"]
+  },
+  {
+    "label": "Rhodes Family",
+    "guests": ["Hannah Rhodes", "Jack Rushmere"]
+  },
+  {
+    "label": "Morgan Family",
+    "guests": ["Ewan Morgan", "Caitlin Hoyle"]
+  },
+  {
+    "label": "Morrison Family",
+    "guests": [
+      "Elliot Morrison",
+      "Holly Gore",
+      { "name": "Blake Morrison", "menu": "children" }
+    ]
+  },
+  {
+    "label": "Bates Family",
+    "guests": ["Cameron Bates", "Natasha Rowan"]
+  },
+  {
+    "label": "James Jones",
+    "guests": ["James Jones"]
+  },
+  {
+    "label": "Abbie Storey",
+    "guests": ["Abbie Storey"]
+  },
+  {
+    "label": "Shaq Henry",
+    "guests": ["Shaq Henry"]
+  },
+  {
+    "label": "Scott Blackett",
+    "guests": ["Scott Blackett"]
+  },
+  {
+    "label": "Jamie Antcliffe",
+    "guests": ["Jamie Antcliffe"]
   }
 ]

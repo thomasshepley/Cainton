@@ -117,10 +117,16 @@ RSVP together. Each party has a label and its guests:
 ```json
 {
   "label": "The Smith Family",
-  "guests": ["John Smith", "Elizabeth Smith", "Emily Smith"],
+  "guests": [
+    "John Smith",
+    { "name": "Emily Smith", "menu": "children" }
+  ],
   "invite": "evening"
 }
 ```
+
+Guests can be plain names (Adult menu) or objects with a `menu`
+(`adult`, `children`, `coeliac-adult`, `coeliac-kids`, `vegetarian`).
 
 `"invite"` is optional: omit it (or use `"full"`) for guests invited to the
 whole day; `"evening"` marks evening-reception-only parties. Evening guests

@@ -453,25 +453,45 @@ export default function RsvpPage() {
                           </p>
                           <div className="space-y-2">
                             {course.options.map((dish) => {
-                              const selected =
-                                answers[m.id]?.meals?.[course.id] === dish.id;
+                              const pick = answers[m.id]?.meals?.[course.id];
+                              const hasVariants = !!dish.variants?.length;
+                              const selected = hasVariants
+                                ? dish.variants!.some((v) => v.id === pick)
+                                : pick === dish.id;
+                              const choose = (dishId: string) =>
+                                setAnswers((prev) => ({
+                                  ...prev,
+                                  [m.id]: {
+                                    ...prev[m.id],
+                                    meals: {
+                                      ...prev[m.id]?.meals,
+                                      [course.id]: dishId,
+                                    },
+                                  },
+                                }));
                               return (
-                                <button
+                                <div
                                   key={dish.id}
-                                  type="button"
-                                  onClick={() =>
-                                    setAnswers((prev) => ({
-                                      ...prev,
-                                      [m.id]: {
-                                        ...prev[m.id],
-                                        meals: {
-                                          ...prev[m.id]?.meals,
-                                          [course.id]: dish.id,
-                                        },
-                                      },
-                                    }))
-                                  }
-                                  className={`block w-full border p-3.5 text-left transition-all duration-200 ${
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => {
+                                    if (selected) return;
+                                    choose(
+                                      hasVariants ? dish.variants![0].id : dish.id
+                                    );
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" || e.key === " ") {
+                                      e.preventDefault();
+                                      if (!selected)
+                                        choose(
+                                          hasVariants
+                                            ? dish.variants![0].id
+                                            : dish.id
+                                        );
+                                    }
+                                  }}
+                                  className={`block w-full cursor-pointer border p-3.5 text-left transition-all duration-200 ${
                                     selected
                                       ? "border-sage-dark bg-sage-light"
                                       : "border-ink-soft/20 bg-white/60 hover:border-sage-dark/60"
@@ -486,7 +506,21 @@ export default function RsvpPage() {
                                       {dish.description}
                                     </span>
                                   )}
-                                </button>
+                                  {hasVariants && selected && (
+                                    <select
+                                      value={pick}
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={(e) => choose(e.target.value)}
+                                      className="mt-2.5 block w-full rounded-lg border border-sage-dark/40 bg-white px-3 py-2 text-sm outline-none focus:border-gold sm:w-auto"
+                                    >
+                                      {dish.variants!.map((v) => (
+                                        <option key={v.id} value={v.id}>
+                                          {v.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </div>
                               );
                             })}
                           </div>
