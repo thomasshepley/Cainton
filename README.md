@@ -158,7 +158,11 @@ to re-seed from scratch.
 - `/rsvp` — the guest flow: name lookup → confirm → attending? → meals + note → done
 - `/admin` — dashboard: response stats, meal counts, per-party status, add/remove
   guests and parties, CSV export. Password is `ADMIN_PASSWORD`
-  (default `cainton-admin` — change it!).
+  (default `cainton-admin` — change it!). A collapsible **Website Activity**
+  section at the bottom records every change (who, what, old → new) along
+  with the requester's IP, device, language, and timezone — handy for
+  checking a change really came from the right person. Searchable and
+  filterable by type and party.
 
 ## How the name matching works
 

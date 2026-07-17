@@ -4,14 +4,20 @@ import {
   addGuestToParty,
   deleteGuest,
   deleteParty,
+  getGuestDetail,
+  getParty,
+  getResponse,
+  logActivity,
   setGuestResponse,
   setPartyInviteType,
 } from "@/lib/db";
 import { isAdmin } from "@/lib/adminAuth";
-import { MENU_IDS, MENU_COURSE_DISHES } from "@/lib/site";
+import { MENU_IDS, MENU_COURSE_DISHES, menuById } from "@/lib/site";
+import { diffGuestResponse, requestContext } from "@/lib/activity";
 
 /**
- * Admin guest-list management.
+ * Admin guest-list management. All actions are recorded in the
+ * activity log with actor "Admin".
  * POST { action: "addParty", label, guests: string[] }
  * POST { action: "addGuest", partyId, name }
  * POST { action: "deleteGuest", guestId }
@@ -31,6 +37,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
+  const ctx = requestContext(req, body, "Admin");
   const action = body.action;
   try {
     if (action === "addParty") {
@@ -49,6 +56,19 @@ export async function POST(req: NextRequest) {
       }
       const inviteType = body.inviteType === "evening" ? "evening" : "full";
       addParty(label, guests, inviteType);
+      logActivity(
+        [
+          {
+            partyId: null,
+            partyLabel: label,
+            subject: label,
+            field: "Guest list",
+            oldValue: null,
+            newValue: `Party added (${guests.join(", ")})`,
+          },
+        ],
+        ctx
+      );
       return NextResponse.json({ ok: true });
     }
     if (action === "addGuest") {
@@ -58,6 +78,20 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Invalid request" }, { status: 400 });
       }
       addGuestToParty(partyId, name);
+      const party = getParty(partyId);
+      logActivity(
+        [
+          {
+            partyId,
+            partyLabel: party?.label ?? "",
+            subject: name,
+            field: "Guest list",
+            oldValue: null,
+            newValue: "Guest added",
+          },
+        ],
+        ctx
+      );
       return NextResponse.json({ ok: true });
     }
     if (action === "deleteGuest") {
@@ -65,7 +99,23 @@ export async function POST(req: NextRequest) {
       if (!Number.isInteger(guestId) || guestId <= 0) {
         return NextResponse.json({ error: "Invalid request" }, { status: 400 });
       }
+      const guest = getGuestDetail(guestId);
       deleteGuest(guestId);
+      if (guest) {
+        logActivity(
+          [
+            {
+              partyId: guest.party_id,
+              partyLabel: guest.party_label,
+              subject: guest.full_name,
+              field: "Guest list",
+              oldValue: "On the list",
+              newValue: "Removed",
+            },
+          ],
+          ctx
+        );
+      }
       return NextResponse.json({ ok: true });
     }
     if (action === "setResponse") {
@@ -102,8 +152,50 @@ export async function POST(req: NextRequest) {
         }
         if (Object.keys(cleaned).length > 0) meal = JSON.stringify(cleaned);
       }
+      // Snapshot before the change so the log can show old -> new
+      const before = getGuestDetail(guestId);
+      const oldResponse = before ? getResponse(guestId) : null;
       if (!setGuestResponse(guestId, attending, meal, menu)) {
         return NextResponse.json({ error: "Guest not found" }, { status: 404 });
+      }
+      if (before) {
+        const entries = [];
+        if (menu && menu !== before.menu) {
+          entries.push({
+            partyId: before.party_id,
+            partyLabel: before.party_label,
+            subject: before.full_name,
+            field: "Menu",
+            oldValue: menuById(before.menu).label,
+            newValue: menuById(menu).label,
+          });
+        }
+        if (attending === null) {
+          if (oldResponse) {
+            entries.push({
+              partyId: before.party_id,
+              partyLabel: before.party_label,
+              subject: before.full_name,
+              field: "RSVP",
+              oldValue:
+                oldResponse.attending === 1 ? "Attending" : "Declined",
+              newValue: "No response",
+            });
+          }
+        } else {
+          entries.push(
+            ...diffGuestResponse({
+              partyId: before.party_id,
+              partyLabel: before.party_label,
+              guestName: before.full_name,
+              oldAttending: oldResponse ? oldResponse.attending : null,
+              newAttending: attending,
+              oldMeal: oldResponse?.meal ?? null,
+              newMeal: attending ? meal : null,
+            })
+          );
+        }
+        logActivity(entries, ctx);
       }
       return NextResponse.json({ ok: true });
     }
@@ -113,8 +205,25 @@ export async function POST(req: NextRequest) {
       if (!Number.isInteger(partyId) || partyId <= 0) {
         return NextResponse.json({ error: "Invalid request" }, { status: 400 });
       }
+      const before = getParty(partyId);
       if (!setPartyInviteType(partyId, inviteType)) {
         return NextResponse.json({ error: "Party not found" }, { status: 404 });
+      }
+      if (before && before.invite_type !== inviteType) {
+        logActivity(
+          [
+            {
+              partyId,
+              partyLabel: before.label,
+              subject: before.label,
+              field: "Invitation",
+              oldValue:
+                before.invite_type === "evening" ? "Evening only" : "Full day",
+              newValue: inviteType === "evening" ? "Evening only" : "Full day",
+            },
+          ],
+          ctx
+        );
       }
       return NextResponse.json({ ok: true });
     }
@@ -123,7 +232,23 @@ export async function POST(req: NextRequest) {
       if (!Number.isInteger(partyId) || partyId <= 0) {
         return NextResponse.json({ error: "Invalid request" }, { status: 400 });
       }
+      const before = getParty(partyId);
       deleteParty(partyId);
+      if (before) {
+        logActivity(
+          [
+            {
+              partyId,
+              partyLabel: before.label,
+              subject: before.label,
+              field: "Guest list",
+              oldValue: "On the list",
+              newValue: "Party deleted",
+            },
+          ],
+          ctx
+        );
+      }
       return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });

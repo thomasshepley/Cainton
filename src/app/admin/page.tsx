@@ -19,7 +19,53 @@ interface AdminRow {
   song_request: string | null;
 }
 
+interface ActivityRow {
+  id: number;
+  created_at: string;
+  actor: string;
+  party_id: number | null;
+  party_label: string;
+  subject: string;
+  field: string;
+  old_value: string | null;
+  new_value: string | null;
+  ip: string | null;
+  user_agent: string | null;
+  language: string | null;
+  timezone: string | null;
+}
+
 type StatKey = "invited" | "attending" | "declined" | "awaiting";
+
+/** Short human summary of a user-agent string, e.g. "Chrome · iPhone" */
+function deviceSummary(ua: string | null): string {
+  if (!ua) return "Unknown device";
+  const browser = /edg\//i.test(ua)
+    ? "Edge"
+    : /opr\//i.test(ua)
+      ? "Opera"
+      : /chrome|crios/i.test(ua)
+        ? "Chrome"
+        : /firefox|fxios/i.test(ua)
+          ? "Firefox"
+          : /safari/i.test(ua)
+            ? "Safari"
+            : "Browser";
+  const device = /iphone/i.test(ua)
+    ? "iPhone"
+    : /ipad/i.test(ua)
+      ? "iPad"
+      : /android/i.test(ua)
+        ? "Android"
+        : /windows/i.test(ua)
+          ? "Windows"
+          : /macintosh|mac os/i.test(ua)
+            ? "Mac"
+            : /linux/i.test(ua)
+              ? "Linux"
+              : "device";
+  return `${browser} · ${device}`;
+}
 
 const SELECT_CLASS =
   "rounded-lg border border-ink-soft/25 bg-white px-2.5 py-1.5 text-xs text-ink outline-none transition-colors focus:border-gold disabled:opacity-50";
@@ -97,6 +143,14 @@ export default function AdminPage() {
   // so a stray click can't change someone's choices
   const [editingMeals, setEditingMeals] = useState<Set<number>>(new Set());
 
+  // Website Activity section
+  const [activity, setActivity] = useState<ActivityRow[]>([]);
+  const [activityOpen, setActivityOpen] = useState(false);
+  const [activitySearch, setActivitySearch] = useState("");
+  const [activityField, setActivityField] = useState("all");
+  const [activityParty, setActivityParty] = useState("all");
+  const [openActivityRow, setOpenActivityRow] = useState<number | null>(null);
+
   function toggleEditingMeals(guestId: number) {
     setEditingMeals((prev) => {
       const next = new Set(prev);
@@ -128,6 +182,18 @@ export default function AdminPage() {
       setRows(data.rows);
       setAuthed(true);
       sessionStorage.setItem("adminKey", adminKey);
+      // Activity log loads alongside — failures here shouldn't block the page
+      try {
+        const actRes = await fetch("/api/admin/activity", {
+          headers: { "x-admin-key": adminKey },
+        });
+        if (actRes.ok) {
+          const actData = await actRes.json();
+          setActivity(actData.rows);
+        }
+      } catch {
+        /* non-fatal */
+      }
     } catch {
       setError("Could not load data.");
     } finally {
@@ -153,7 +219,12 @@ export default function AdminPage() {
           "Content-Type": "application/json",
           "x-admin-key": key,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          client: {
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -213,6 +284,35 @@ export default function AdminPage() {
       return { id, ...p, attending, declined, awaiting };
     });
   }, [rows]);
+
+  const activityFields = useMemo(
+    () => [...new Set(activity.map((a) => a.field))].sort(),
+    [activity]
+  );
+  const activityParties = useMemo(
+    () => [...new Set(activity.map((a) => a.party_label).filter(Boolean))].sort(),
+    [activity]
+  );
+  const filteredActivity = useMemo(() => {
+    const q = activitySearch.trim().toLowerCase();
+    return activity.filter((a) => {
+      if (activityField !== "all" && a.field !== activityField) return false;
+      if (activityParty !== "all" && a.party_label !== activityParty)
+        return false;
+      if (!q) return true;
+      return [
+        a.actor,
+        a.subject,
+        a.party_label,
+        a.field,
+        a.old_value ?? "",
+        a.new_value ?? "",
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(q);
+    });
+  }, [activity, activitySearch, activityField, activityParty]);
 
   function toggleParty(id: number) {
     setOpenParties((prev) => {
@@ -752,6 +852,179 @@ export default function AdminPage() {
             Add party
           </button>
         </form>
+      </section>
+
+      {/* Website Activity — audit trail of every change */}
+      <section className="mt-8">
+        <div className="overflow-hidden rounded-xl border border-ink-soft/20 bg-white/60">
+          <button
+            onClick={() => setActivityOpen((v) => !v)}
+            className="flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 text-left transition-colors hover:bg-cream-dark/40"
+          >
+            <span
+              className={`inline-block text-xs text-ink-soft transition-transform duration-200 ${
+                activityOpen ? "rotate-90" : ""
+              }`}
+            >
+              ▸
+            </span>
+            <span className="font-display min-w-0 flex-1 truncate text-lg leading-tight">
+              Website Activity
+            </span>
+            <Chip tone="ink">{activity.length} events</Chip>
+          </button>
+
+          {activityOpen && (
+            <div className="animate-rise border-t border-ink-soft/10 px-4 pb-4">
+              {/* Search + filters */}
+              <div className="flex flex-wrap items-center gap-2 py-3">
+                <input
+                  value={activitySearch}
+                  onChange={(e) => setActivitySearch(e.target.value)}
+                  placeholder="Search names, changes…"
+                  className="min-w-0 flex-1 rounded-lg border border-ink-soft/25 bg-white px-3 py-1.5 text-sm outline-none focus:border-gold"
+                />
+                <select
+                  value={activityField}
+                  onChange={(e) => setActivityField(e.target.value)}
+                  className={SELECT_CLASS}
+                >
+                  <option value="all">All types</option>
+                  {activityFields.map((f) => (
+                    <option key={f} value={f}>
+                      {f}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={activityParty}
+                  onChange={(e) => setActivityParty(e.target.value)}
+                  className={SELECT_CLASS}
+                >
+                  <option value="all">All parties</option>
+                  {activityParties.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {filteredActivity.length === 0 ? (
+                <p className="py-4 text-center text-sm text-ink-soft">
+                  {activity.length === 0
+                    ? "Nothing yet — activity appears here as guests use the site."
+                    : "No events match your search."}
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  {filteredActivity.map((a) => {
+                    const detailsOpen = openActivityRow === a.id;
+                    const when = new Date(a.created_at);
+                    return (
+                      <div
+                        key={a.id}
+                        className="rounded-lg border border-ink-soft/10 bg-white/70"
+                      >
+                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-3 py-2 text-sm">
+                          <button
+                            onClick={() =>
+                              setOpenActivityRow(detailsOpen ? null : a.id)
+                            }
+                            title={`${deviceSummary(a.user_agent)}${
+                              a.ip ? ` · IP ${a.ip}` : ""
+                            }${a.timezone ? ` · ${a.timezone}` : ""} — click for details`}
+                            className="cursor-help font-mono text-[0.7rem] whitespace-nowrap text-ink-soft/70 underline decoration-dotted underline-offset-4 hover:text-ink"
+                          >
+                            {when.toLocaleDateString(undefined, {
+                              day: "2-digit",
+                              month: "short",
+                            })}{" "}
+                            {when.toLocaleTimeString(undefined, {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </button>
+                          <span className="font-medium">{a.actor}</span>
+                          {a.field === "Access" ? (
+                            <span className="text-ink-soft">
+                              {a.new_value?.toLowerCase().startsWith("found")
+                                ? a.new_value.charAt(0).toLowerCase() +
+                                  a.new_value.slice(1)
+                                : a.new_value}
+                            </span>
+                          ) : (
+                            <>
+                              <span className="text-ink-soft">changed</span>
+                              {a.subject !== a.actor && (
+                                <span className="font-medium">{a.subject}</span>
+                              )}
+                              <Chip tone="gold">{a.field}</Chip>
+                              <span className="text-ink-soft/80 line-through decoration-ink-soft/40">
+                                {a.old_value ?? "—"}
+                              </span>
+                              <span className="text-ink-soft">→</span>
+                              <span className="text-sage-dark">
+                                {a.new_value ?? "—"}
+                              </span>
+                            </>
+                          )}
+                          {a.party_label && a.party_label !== a.subject && (
+                            <span className="text-xs text-ink-soft/60">
+                              ({a.party_label})
+                            </span>
+                          )}
+                        </div>
+                        {detailsOpen && (
+                          <div className="border-t border-ink-soft/10 bg-cream-dark/40 px-3 py-2 text-xs leading-relaxed text-ink-soft">
+                            <p>
+                              <span className="text-ink-soft/60">When:</span>{" "}
+                              {when.toLocaleString()}
+                            </p>
+                            <p>
+                              <span className="text-ink-soft/60">Device:</span>{" "}
+                              {deviceSummary(a.user_agent)}
+                            </p>
+                            {a.ip && (
+                              <p>
+                                <span className="text-ink-soft/60">IP:</span>{" "}
+                                {a.ip}
+                              </p>
+                            )}
+                            {a.timezone && (
+                              <p>
+                                <span className="text-ink-soft/60">
+                                  Timezone:
+                                </span>{" "}
+                                {a.timezone}
+                              </p>
+                            )}
+                            {a.language && (
+                              <p>
+                                <span className="text-ink-soft/60">
+                                  Language:
+                                </span>{" "}
+                                {a.language}
+                              </p>
+                            )}
+                            {a.user_agent && (
+                              <p className="break-all">
+                                <span className="text-ink-soft/60">
+                                  Full user agent:
+                                </span>{" "}
+                                {a.user_agent}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </section>
     </main>
   );

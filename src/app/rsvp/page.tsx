@@ -100,6 +100,15 @@ function BackLink({ onClick, label }: { onClick: () => void; label: string }) {
   );
 }
 
+/** Sent with requests so the activity log can note the device timezone */
+function clientInfo() {
+  try {
+    return { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+  } catch {
+    return { timezone: "" };
+  }
+}
+
 /* ---------- the flow ---------- */
 
 export default function RsvpPage() {
@@ -141,7 +150,7 @@ export default function RsvpPage() {
       const res = await fetch("/api/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: nameInput }),
+        body: JSON.stringify({ name: nameInput, client: clientInfo() }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -171,7 +180,7 @@ export default function RsvpPage() {
       const res = await fetch("/api/party", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guestId: c.id }),
+        body: JSON.stringify({ guestId: c.id, client: clientInfo() }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -216,6 +225,7 @@ export default function RsvpPage() {
           submittedBy: matchedName || nameInput,
           comment,
           songRequest,
+          client: clientInfo(),
           answers: party.members.map((m) => ({
             guestId: m.id,
             attending: answers[m.id]?.attending === true,

@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getParty, guestsForParty, saveRsvp } from "@/lib/db";
+import {
+  commentForParty,
+  getParty,
+  guestsForParty,
+  logActivity,
+  responsesForParty,
+  saveRsvp,
+  ActivityEntry,
+} from "@/lib/db";
 import { DEFAULT_MENU, menuById, MENU_COURSE_DISHES } from "@/lib/site";
+import { diffGuestResponse, diffText, requestContext } from "@/lib/activity";
 
 /**
  * POST an RSVP for a whole party.
@@ -89,6 +98,47 @@ export async function POST(req: NextRequest) {
     answers.push({ guestId, attending, meal });
   }
 
+  // Snapshot the current state so the activity log can show old -> new
+  const members = guestsForParty(partyId);
+  const nameById = new Map(members.map((g) => [g.id, g.full_name]));
+  const oldResponses = new Map(
+    responsesForParty(partyId).map((r) => [r.guest_id, r])
+  );
+  const oldComment = commentForParty(partyId);
+
   saveRsvp({ partyId, submittedBy, comment, songRequest, answers });
+
+  const entries: ActivityEntry[] = [];
+  for (const a of answers) {
+    const guestName = nameById.get(a.guestId);
+    if (!guestName) continue; // not in this party — was ignored by saveRsvp
+    const old = oldResponses.get(a.guestId);
+    entries.push(
+      ...diffGuestResponse({
+        partyId,
+        partyLabel: party.label,
+        guestName,
+        oldAttending: old ? old.attending : null,
+        newAttending: a.attending,
+        oldMeal: old?.meal ?? null,
+        newMeal: a.meal,
+      })
+    );
+  }
+  entries.push(
+    ...diffText(partyId, party.label, "Comment", oldComment?.comment ?? "", comment),
+    ...diffText(
+      partyId,
+      party.label,
+      "Song request",
+      oldComment?.song_request ?? "",
+      songRequest
+    )
+  );
+  logActivity(
+    entries,
+    requestContext(req, body as Record<string, unknown>, submittedBy)
+  );
+
   return NextResponse.json({ ok: true });
 }

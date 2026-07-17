@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { allGuests } from "@/lib/db";
+import { allGuests, logActivity, partyOf } from "@/lib/db";
 import { rankMatches, CONFIDENT_MATCH, POSSIBLE_MATCH } from "@/lib/match";
 import { buildPartyPayload } from "@/lib/partyPayload";
+import { requestContext } from "@/lib/activity";
 
 /**
  * POST { name } -> fuzzy-match against the guest list.
@@ -46,6 +47,20 @@ export async function POST(req: NextRequest) {
       runnerUp.score < CONFIDENT_MATCH);
 
   if (decisive) {
+    const partyInfo = partyOf(best.item.id);
+    logActivity(
+      [
+        {
+          partyId: partyInfo?.party.id ?? null,
+          partyLabel: partyInfo?.party.label ?? "",
+          subject: best.item.full_name,
+          field: "Access",
+          oldValue: null,
+          newValue: `Found invitation (searched “${name}”)`,
+        },
+      ],
+      requestContext(req, body as Record<string, unknown>, best.item.full_name)
+    );
     return NextResponse.json({
       status: "match",
       match: { id: best.item.id, full_name: best.item.full_name },

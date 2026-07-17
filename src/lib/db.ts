@@ -78,6 +78,21 @@ function initDb(): Database.Database {
       song_request TEXT NOT NULL DEFAULT '',
       submitted_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS activity_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      created_at TEXT NOT NULL,
+      actor TEXT NOT NULL,
+      party_id INTEGER,
+      party_label TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      field TEXT NOT NULL,
+      old_value TEXT,
+      new_value TEXT,
+      ip TEXT,
+      user_agent TEXT,
+      language TEXT,
+      timezone TEXT
+    );
   `);
 
   // Migrations for databases created before these columns existed
@@ -417,4 +432,115 @@ export function setPartyInviteType(
     .prepare("UPDATE parties SET invite_type = ? WHERE id = ?")
     .run(inviteType, partyId);
   return result.changes > 0;
+}
+
+// ---------- Activity log ----------
+
+export interface ActivityRow {
+  id: number;
+  created_at: string;
+  actor: string;
+  party_id: number | null;
+  party_label: string;
+  subject: string;
+  field: string;
+  old_value: string | null;
+  new_value: string | null;
+  ip: string | null;
+  user_agent: string | null;
+  language: string | null;
+  timezone: string | null;
+}
+
+export interface ActivityContext {
+  actor: string;
+  ip: string | null;
+  userAgent: string | null;
+  language: string | null;
+  timezone: string | null;
+}
+
+export interface ActivityEntry {
+  partyId: number | null;
+  partyLabel: string;
+  subject: string;
+  field: string;
+  oldValue?: string | null;
+  newValue?: string | null;
+}
+
+export function logActivity(
+  entries: ActivityEntry[],
+  ctx: ActivityContext
+): void {
+  if (entries.length === 0) return;
+  const db = getDb();
+  const insert = db.prepare(`
+    INSERT INTO activity_log
+      (created_at, actor, party_id, party_label, subject, field,
+       old_value, new_value, ip, user_agent, language, timezone)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const now = new Date().toISOString();
+  const tx = db.transaction(() => {
+    for (const e of entries) {
+      insert.run(
+        now,
+        ctx.actor.slice(0, 100),
+        e.partyId,
+        e.partyLabel.slice(0, 200),
+        e.subject.slice(0, 200),
+        e.field.slice(0, 60),
+        e.oldValue?.slice(0, 500) ?? null,
+        e.newValue?.slice(0, 500) ?? null,
+        ctx.ip?.slice(0, 100) ?? null,
+        ctx.userAgent?.slice(0, 400) ?? null,
+        ctx.language?.slice(0, 100) ?? null,
+        ctx.timezone?.slice(0, 64) ?? null
+      );
+    }
+  });
+  tx();
+}
+
+export function getActivity(limit = 500): ActivityRow[] {
+  return getDb()
+    .prepare("SELECT * FROM activity_log ORDER BY id DESC LIMIT ?")
+    .all(limit) as ActivityRow[];
+}
+
+/** A single guest with their party context (for change diffing) */
+export function getGuestDetail(guestId: number): {
+  id: number;
+  full_name: string;
+  menu: string;
+  party_id: number;
+  party_label: string;
+} | null {
+  return (
+    (getDb()
+      .prepare(
+        `SELECT g.id, g.full_name, g.menu, g.party_id, p.label AS party_label
+         FROM guests g JOIN parties p ON p.id = g.party_id WHERE g.id = ?`
+      )
+      .get(guestId) as
+      | {
+          id: number;
+          full_name: string;
+          menu: string;
+          party_id: number;
+          party_label: string;
+        }
+      | undefined) ?? null
+  );
+}
+
+export function getResponse(guestId: number): Response | null {
+  return (
+    (getDb()
+      .prepare(
+        "SELECT guest_id, attending, meal, submitted_by, submitted_at FROM responses WHERE guest_id = ?"
+      )
+      .get(guestId) as Response | undefined) ?? null
+  );
 }
