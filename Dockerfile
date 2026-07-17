@@ -21,6 +21,8 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 # Guest list seed — the SQLite DB is created next to it on first run
 COPY --from=builder /app/data/guests.seed.json ./data/guests.seed.json
+# Maintenance scripts (e.g. admin password reset)
+COPY --from=builder /app/scripts ./scripts
 
 EXPOSE 3000
 VOLUME /app/data

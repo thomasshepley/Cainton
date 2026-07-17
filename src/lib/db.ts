@@ -27,6 +27,8 @@ export interface Party {
   id: number;
   label: string;
   invite_type: InviteType;
+  /** 1 = hidden from guest name lookup entirely (admin-only) */
+  hidden: number;
 }
 
 export interface Response {
@@ -78,6 +80,10 @@ function initDb(): Database.Database {
       song_request TEXT NOT NULL DEFAULT '',
       submitted_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS activity_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       created_at TEXT NOT NULL,
@@ -120,6 +126,13 @@ function initDb(): Database.Database {
   }
   // Menus were split into adult/kids coeliac variants
   db.exec("UPDATE guests SET menu = 'coeliac-adult' WHERE menu = 'coeliac'");
+  // Parties can be hidden from guest lookup entirely (e.g. the couple)
+  const partyCols2 = db.prepare("PRAGMA table_info(parties)").all() as {
+    name: string;
+  }[];
+  if (!partyCols2.some((c) => c.name === "hidden")) {
+    db.exec("ALTER TABLE parties ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0");
+  }
   // Meal choices moved from a single dish id to a JSON object of
   // course -> dish; legacy single-dish values can't be mapped, so those
   // guests show as "no meal chosen" and can re-pick (or be set by admin)
@@ -176,6 +189,17 @@ export function allGuests(): Guest[] {
     .all() as Guest[];
 }
 
+/** Guests excluding hidden parties — what the public name lookup sees */
+export function visibleGuests(): Guest[] {
+  return getDb()
+    .prepare(
+      `SELECT g.id, g.party_id, g.full_name, g.menu FROM guests g
+       JOIN parties p ON p.id = g.party_id
+       WHERE p.hidden = 0 ORDER BY g.full_name`
+    )
+    .all() as Guest[];
+}
+
 export function partyOf(guestId: number): {
   party: Party;
   members: Guest[];
@@ -186,7 +210,7 @@ export function partyOf(guestId: number): {
     .get(guestId) as Guest | undefined;
   if (!guest) return null;
   const party = db
-    .prepare("SELECT id, label, invite_type FROM parties WHERE id = ?")
+    .prepare("SELECT id, label, invite_type, hidden FROM parties WHERE id = ?")
     .get(guest.party_id) as Party;
   const members = db
     .prepare(
@@ -219,7 +243,7 @@ export function commentForParty(partyId: number): PartyComment | null {
 export function getParty(partyId: number): Party | null {
   return (
     (getDb()
-      .prepare("SELECT id, label, invite_type FROM parties WHERE id = ?")
+      .prepare("SELECT id, label, invite_type, hidden FROM parties WHERE id = ?")
       .get(partyId) as Party | undefined) ?? null
   );
 }
@@ -301,6 +325,7 @@ export interface AdminRow {
   menu: string;
   party_label: string;
   invite_type: InviteType;
+  hidden: number;
   attending: number | null;
   meal: string | null;
   submitted_by: string | null;
@@ -314,7 +339,8 @@ export function adminOverview(): AdminRow[] {
     .prepare(
       `SELECT g.id AS guest_id, g.full_name, g.party_id, g.menu,
               p.label AS party_label,
-              p.invite_type, r.attending, r.meal, r.submitted_by, r.submitted_at,
+              p.invite_type, p.hidden,
+              r.attending, r.meal, r.submitted_by, r.submitted_at,
               c.comment, c.song_request
        FROM guests g
        JOIN parties p ON p.id = g.party_id
@@ -421,6 +447,43 @@ export function setGuestResponse(
        submitted_at = excluded.submitted_at`
   ).run(guestId, attending ? 1 : 0, attending ? meal : null, new Date().toISOString());
   return true;
+}
+
+/** Admin: hide/unhide a party from the public name lookup */
+export function setPartyHidden(partyId: number, hidden: boolean): boolean {
+  const result = getDb()
+    .prepare("UPDATE parties SET hidden = ? WHERE id = ?")
+    .run(hidden ? 1 : 0, partyId);
+  return result.changes > 0;
+}
+
+// ---------- Settings ----------
+
+export function getSettings(): Record<string, string> {
+  const rows = getDb()
+    .prepare("SELECT key, value FROM settings")
+    .all() as { key: string; value: string }[];
+  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+}
+
+export function getSetting(key: string): string | null {
+  const row = getDb()
+    .prepare("SELECT value FROM settings WHERE key = ?")
+    .get(key) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
+export function setSetting(key: string, value: string): void {
+  getDb()
+    .prepare(
+      `INSERT INTO settings (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+    )
+    .run(key, value);
+}
+
+export function deleteSetting(key: string): void {
+  getDb().prepare("DELETE FROM settings WHERE key = ?").run(key);
 }
 
 /** Admin: switch a whole party between full-day and evening-only */

@@ -11,6 +11,7 @@ interface AdminRow {
   menu: string;
   party_label: string;
   invite_type: "full" | "evening";
+  hidden: number;
   attending: number | null;
   meal: string | null;
   submitted_by: string | null;
@@ -142,6 +143,18 @@ export default function AdminPage() {
   // Meal/menu selects are hidden behind an explicit "Edit meals" toggle
   // so a stray click can't change someone's choices
   const [editingMeals, setEditingMeals] = useState<Set<number>>(new Set());
+
+  // Dark / light theme (admin panel only, remembered per device)
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  useEffect(() => {
+    const saved = localStorage.getItem("adminTheme");
+    if (saved === "dark") setTheme("dark");
+    return () => document.documentElement.classList.remove("theme-dark");
+  }, []);
+  useEffect(() => {
+    document.documentElement.classList.toggle("theme-dark", theme === "dark");
+    localStorage.setItem("adminTheme", theme);
+  }, [theme]);
 
   // Website Activity section
   const [activity, setActivity] = useState<ActivityRow[]>([]);
@@ -385,7 +398,20 @@ export default function AdminPage() {
             {site.coupleNames} · {site.dateDisplay}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            title="Toggle dark mode"
+            className="rounded-lg border border-ink-soft/30 px-3 py-1.5 text-[0.65rem] tracking-[0.15em] uppercase text-ink-soft hover:border-ink hover:text-ink"
+          >
+            {theme === "dark" ? "☀ Light" : "🌙 Dark"}
+          </button>
+          <Link
+            href="/admin/settings"
+            className="rounded-lg border border-ink-soft/30 px-3 py-1.5 text-[0.65rem] tracking-[0.15em] uppercase text-ink-soft hover:border-ink hover:text-ink"
+          >
+            Settings
+          </Link>
           <button
             onClick={downloadCsv}
             className="rounded-lg border border-ink-soft/30 px-3 py-1.5 text-[0.65rem] tracking-[0.15em] uppercase text-ink-soft hover:border-ink hover:text-ink"
@@ -571,6 +597,7 @@ export default function AdminPage() {
                     {p.label}
                   </span>
                   {inviteType === "evening" && <Chip tone="gold">evening</Chip>}
+                  {p.rows[0]?.hidden === 1 && <Chip tone="ink">🔒 hidden</Chip>}
                   <span className="flex items-center gap-1.5">
                     {p.attending > 0 && <Chip tone="sage">✓ {p.attending}</Chip>}
                     {p.declined > 0 && <Chip tone="ink">✗ {p.declined}</Chip>}
@@ -602,15 +629,33 @@ export default function AdminPage() {
                         <option value="full">Invited: full day</option>
                         <option value="evening">Invited: evening only</option>
                       </select>
-                      <button
-                        onClick={() => {
-                          if (confirm(`Delete party "${p.label}" and all its guests?`))
-                            action({ action: "deleteParty", partyId: p.id });
-                        }}
-                        className="text-[0.65rem] tracking-[0.15em] uppercase text-red-800/60 hover:text-red-800 hover:underline"
-                      >
-                        Delete party
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() =>
+                            action({
+                              action: "setHidden",
+                              partyId: p.id,
+                              hidden: p.rows[0]?.hidden !== 1,
+                            })
+                          }
+                          disabled={busy}
+                          title="Hidden parties can't be found, viewed or edited from the guest RSVP page"
+                          className="text-[0.65rem] tracking-[0.15em] uppercase text-ink-soft hover:text-ink hover:underline"
+                        >
+                          {p.rows[0]?.hidden === 1
+                            ? "🔓 Unhide from search"
+                            : "🔒 Hide from search"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`Delete party "${p.label}" and all its guests?`))
+                              action({ action: "deleteParty", partyId: p.id });
+                          }}
+                          className="text-[0.65rem] tracking-[0.15em] uppercase text-red-800/60 hover:text-red-800 hover:underline"
+                        >
+                          Delete party
+                        </button>
+                      </div>
                     </div>
 
                     {/* Members */}

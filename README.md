@@ -164,6 +164,36 @@ to re-seed from scratch.
   checking a change really came from the right person. Searchable and
   filterable by type and party.
 
+## Admin settings
+
+`/admin/settings` (linked from the dashboard header) controls site
+behavior. Everything is enforced server-side, not just hidden in the UI:
+
+- **Lock all meal choices now** — freezes meals for everyone; attendance,
+  notes and songs stay open.
+- **Lock meal choices once submitted** — a guest's dishes become final the
+  moment they submit; only the dashboard can change them after that.
+- **Guests can only edit their own response** — each guest must RSVP under
+  their own name; they see their party's answers but can't change them.
+- **Meal choice deadline / RSVP deadline** — timed versions of the locks.
+  Optionally keep notes & song requests editable after the RSVP deadline,
+  and customise the "RSVPs are closed" message.
+- **Hide a family from search** — per-family button on the dashboard;
+  hidden parties (e.g. the couple's own) can't be found, viewed, or edited
+  from the guest site at all.
+- **Change the admin password** — stored hashed in the database and takes
+  precedence over `ADMIN_PASSWORD`. Locked out? Reset from your PC:
+
+  ```bash
+  docker compose exec wedding-rsvp node scripts/reset-admin-password.js
+  ```
+
+  The password then reverts to `ADMIN_PASSWORD` from your `.env`.
+- **Dark / light mode** — toggle in the dashboard and settings headers,
+  remembered per device.
+
+All settings changes are recorded in the Website Activity log.
+
 ## How the name matching works
 
 `src/lib/match.ts` scores each guest name against what was typed using:

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { allGuests, logActivity, partyOf } from "@/lib/db";
+import { logActivity, partyOf, visibleGuests } from "@/lib/db";
 import { rankMatches, CONFIDENT_MATCH, POSSIBLE_MATCH } from "@/lib/match";
 import { buildPartyPayload } from "@/lib/partyPayload";
 import { requestContext } from "@/lib/activity";
@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const guests = allGuests();
+  // Hidden parties (e.g. the couple's own) are excluded from lookup
+  const guests = visibleGuests();
   const ranked = rankMatches(name, guests, (g) => g.full_name, {
     floor: POSSIBLE_MATCH,
     limit: 5,

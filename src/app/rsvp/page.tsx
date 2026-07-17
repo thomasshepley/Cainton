@@ -11,6 +11,16 @@ interface PartyMember {
   full_name: string;
   menu: string;
   previous: { attending: boolean; meals: Record<string, string> } | null;
+  /** true when lock-after-submit has frozen this guest's meal choices */
+  mealsFrozen: boolean;
+}
+
+interface PartyLocks {
+  mealsLocked: boolean;
+  rsvpLocked: boolean;
+  commentsOpen: boolean;
+  selfEditOnly: boolean;
+  closedMessage: string;
 }
 
 interface Party {
@@ -20,6 +30,7 @@ interface Party {
   members: PartyMember[];
   previousComment: string | null;
   previousSongRequest: string | null;
+  locks: PartyLocks;
 }
 
 interface Candidate {
@@ -195,18 +206,36 @@ export default function RsvpPage() {
     }
   }
 
+  const locks: PartyLocks = party?.locks ?? {
+    mealsLocked: false,
+    rsvpLocked: false,
+    commentsOpen: true,
+    selfEditOnly: false,
+    closedMessage: "",
+  };
+  // Which members can this visitor change? With self-edit-only on,
+  // only the person whose name they signed in with.
+  const canEditMember = (m: PartyMember) =>
+    !locks.rsvpLocked && (!locks.selfEditOnly || m.full_name === matchedName);
+  const canEditMeals = (m: PartyMember) =>
+    canEditMember(m) && !locks.mealsLocked && !m.mealsFrozen;
+
   const allAnswered =
     party !== null &&
-    party.members.every((m) => answers[m.id]?.attending !== null);
+    party.members.every(
+      (m) => !canEditMember(m) || answers[m.id]?.attending !== null
+    );
   const attendingMembers =
     party?.members.filter((m) => answers[m.id]?.attending === true) ?? [];
   const anyAttending = attendingMembers.length > 0;
   // Meal choices only apply to full-day guests (the sit-down lunch) —
   // evening guests go straight to the note step
-  const mealsApply = anyAttending && party?.inviteType === "full";
+  const mealsApply =
+    anyAttending && party?.inviteType === "full" && !locks.rsvpLocked;
   const allMealsChosen =
     !mealsApply ||
     attendingMembers.every((m) => {
+      if (!canEditMeals(m)) return true;
       const menu = site.menus.find((mn) => mn.id === m.menu) ?? site.menus[0];
       const picks = answers[m.id]?.meals ?? {};
       return menu.courses.every((c) => picks[c.id]);
@@ -226,11 +255,17 @@ export default function RsvpPage() {
           comment,
           songRequest,
           client: clientInfo(),
-          answers: party.members.map((m) => ({
-            guestId: m.id,
-            attending: answers[m.id]?.attending === true,
-            meals: answers[m.id]?.meals ?? {},
-          })),
+          // Only submit rows this visitor is allowed to change; when
+          // RSVPs are closed, only the comment/song go through
+          answers: locks.rsvpLocked
+            ? []
+            : party.members
+                .filter((m) => !locks.selfEditOnly || m.full_name === matchedName)
+                .map((m) => ({
+                  guestId: m.id,
+                  attending: answers[m.id]?.attending === true,
+                  meals: answers[m.id]?.meals ?? {},
+                })),
         }),
       });
       const data = await res.json();
@@ -354,6 +389,13 @@ export default function RsvpPage() {
               below and you&apos;re welcome to update them.
             </p>
           )}
+          {locks.rsvpLocked && (
+            <p className="mb-4 border border-gold/50 bg-gold-light px-4 py-3 text-center text-sm leading-relaxed text-ink">
+              {locks.closedMessage}
+              {locks.commentsOpen &&
+                " You can still update your note and song request below."}
+            </p>
+          )}
           <p className="border border-sage-dark/30 bg-sage-light px-4 py-3 text-center text-sm leading-relaxed text-sage-dark">
             {site.inviteInfo[party.inviteType]}
           </p>
@@ -363,6 +405,7 @@ export default function RsvpPage() {
           <div className="mt-8 space-y-5">
             {party.members.map((m) => {
               const a = answers[m.id];
+              const editable = canEditMember(m);
               return (
                 <div
                   key={m.id}
@@ -371,51 +414,71 @@ export default function RsvpPage() {
                   <p className="font-display text-center text-2xl">
                     {m.full_name}
                   </p>
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setAnswers((prev) => ({
-                          ...prev,
-                          [m.id]: { ...prev[m.id], attending: true },
-                        }))
-                      }
-                      className={`border px-4 py-3 text-xs tracking-[0.2em] uppercase transition-all duration-200 ${
-                        a?.attending === true
-                          ? "border-sage-dark bg-sage-dark text-cream"
-                          : "border-ink-soft/30 text-ink-soft hover:border-sage-dark hover:text-sage-dark"
-                      }`}
-                    >
-                      Joyfully accepts
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setAnswers((prev) => ({
-                          ...prev,
-                          [m.id]: { ...prev[m.id], attending: false, meal: null },
-                        }))
-                      }
-                      className={`border px-4 py-3 text-xs tracking-[0.2em] uppercase transition-all duration-200 ${
-                        a?.attending === false
-                          ? "border-ink bg-ink text-cream"
-                          : "border-ink-soft/30 text-ink-soft hover:border-ink hover:text-ink"
-                      }`}
-                    >
-                      Regretfully declines
-                    </button>
-                  </div>
+                  {editable ? (
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAnswers((prev) => ({
+                            ...prev,
+                            [m.id]: { ...prev[m.id], attending: true },
+                          }))
+                        }
+                        className={`border px-4 py-3 text-xs tracking-[0.2em] uppercase transition-all duration-200 ${
+                          a?.attending === true
+                            ? "border-sage-dark bg-sage-dark text-cream"
+                            : "border-ink-soft/30 text-ink-soft hover:border-sage-dark hover:text-sage-dark"
+                        }`}
+                      >
+                        Joyfully accepts
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAnswers((prev) => ({
+                            ...prev,
+                            [m.id]: { ...prev[m.id], attending: false },
+                          }))
+                        }
+                        className={`border px-4 py-3 text-xs tracking-[0.2em] uppercase transition-all duration-200 ${
+                          a?.attending === false
+                            ? "border-ink bg-ink text-cream"
+                            : "border-ink-soft/30 text-ink-soft hover:border-ink hover:text-ink"
+                        }`}
+                      >
+                        Regretfully declines
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-4 text-center">
+                      <p className="text-xs tracking-[0.2em] uppercase text-ink-soft">
+                        {a?.attending === true
+                          ? "✓ Joyfully accepts"
+                          : a?.attending === false
+                            ? "✗ Regretfully declines"
+                            : "Awaiting reply"}
+                      </p>
+                      {!locks.rsvpLocked && locks.selfEditOnly && (
+                        <p className="mt-2 text-[0.65rem] text-ink-soft/70">
+                          🔒 Only {m.full_name.split(" ")[0]} can change this —
+                          ask them to RSVP with their own name.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
           <div className="mt-10">
-            <PrimaryButton
-              onClick={() => setStep("details")}
-              disabled={!allAnswered}
-            >
-              Continue
-            </PrimaryButton>
+            {locks.rsvpLocked && !locks.commentsOpen ? null : (
+              <PrimaryButton
+                onClick={() => setStep("details")}
+                disabled={!allAnswered}
+              >
+                {locks.rsvpLocked ? "Update your note & song" : "Continue"}
+              </PrimaryButton>
+            )}
             {!allAnswered && (
               <p className="mt-3 text-center text-xs text-ink-soft">
                 Please answer for each guest to continue.
@@ -455,6 +518,44 @@ export default function RsvpPage() {
                         {guestMenu.label}
                       </p>
                     )}
+                    {!canEditMeals(m) ? (
+                      <div className="mt-3 border border-ink-soft/20 bg-white/60 p-4 text-center">
+                        {Object.keys(answers[m.id]?.meals ?? {}).length > 0 ? (
+                          <>
+                            <p className="text-sm leading-relaxed">
+                              {guestMenu.courses
+                                .map((c) => {
+                                  const pick = answers[m.id]?.meals?.[c.id];
+                                  if (!pick) return null;
+                                  const dish = c.options.find(
+                                    (o) =>
+                                      o.id === pick ||
+                                      o.variants?.some((v) => v.id === pick)
+                                  );
+                                  const variant = dish?.variants?.find(
+                                    (v) => v.id === pick
+                                  );
+                                  return dish
+                                    ? `${dish.label}${variant ? ` (${variant.label.toLowerCase()})` : ""}`
+                                    : null;
+                                })
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                            <p className="mt-2 text-[0.65rem] tracking-[0.15em] uppercase text-ink-soft/70">
+                              🔒 {m.mealsFrozen || locks.mealsLocked
+                                ? "Meal choices are locked"
+                                : `Only ${m.full_name.split(" ")[0]} can change these`}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-xs leading-relaxed text-ink-soft">
+                            🔒 Meal choices are currently locked — please
+                            contact us and we&apos;ll sort it for you.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
                     <div className="mt-3 space-y-6">
                       {guestMenu.courses.map((course) => (
                         <div key={course.id}>
@@ -537,10 +638,16 @@ export default function RsvpPage() {
                         </div>
                       ))}
                     </div>
+                    )}
                   </div>
                 );
               })}
             </div>
+          ) : locks.rsvpLocked ? (
+            <p className="text-center text-sm leading-relaxed text-ink-soft">
+              Your RSVP is on file. You can still update your note and song
+              request below.
+            </p>
           ) : anyAttending ? (
             <p className="text-center text-sm leading-relaxed text-ink-soft">
               We can&apos;t wait to celebrate with you in the evening! If

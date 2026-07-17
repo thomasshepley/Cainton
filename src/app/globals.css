@@ -20,6 +20,25 @@ html {
   scroll-behavior: smooth;
 }
 
+/*
+ * Dark theme for the admin panel. Tailwind v4 utilities resolve
+ * colors through CSS variables, so overriding them here flips every
+ * bg-*, text-* and border-* that uses the palette.
+ */
+.theme-dark {
+  --color-cream: #191817;
+  --color-cream-dark: #26241f;
+  --color-ink: #eae5da;
+  --color-ink-soft: #a59d8d;
+  --color-sage: #8a9a7c;
+  --color-sage-dark: #97ab86;
+  --color-sage-light: #2a2f26;
+  --color-gold: #c8a468;
+  --color-gold-light: #2e281d;
+  --color-white: #211f1c;
+  color-scheme: dark;
+}
+
 body {
   background-color: var(--color-cream);
   color: var(--color-ink);

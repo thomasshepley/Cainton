@@ -9,6 +9,7 @@ import {
   getResponse,
   logActivity,
   setGuestResponse,
+  setPartyHidden,
   setPartyInviteType,
 } from "@/lib/db";
 import { isAdmin } from "@/lib/adminAuth";
@@ -220,6 +221,33 @@ export async function POST(req: NextRequest) {
               oldValue:
                 before.invite_type === "evening" ? "Evening only" : "Full day",
               newValue: inviteType === "evening" ? "Evening only" : "Full day",
+            },
+          ],
+          ctx
+        );
+      }
+      return NextResponse.json({ ok: true });
+    }
+    if (action === "setHidden") {
+      const partyId = Number(body.partyId);
+      const hidden = body.hidden === true;
+      if (!Number.isInteger(partyId) || partyId <= 0) {
+        return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+      }
+      const before = getParty(partyId);
+      if (!setPartyHidden(partyId, hidden)) {
+        return NextResponse.json({ error: "Party not found" }, { status: 404 });
+      }
+      if (before && (before.hidden === 1) !== hidden) {
+        logActivity(
+          [
+            {
+              partyId,
+              partyLabel: before.label,
+              subject: before.label,
+              field: "Visibility",
+              oldValue: before.hidden === 1 ? "Hidden from lookup" : "Visible",
+              newValue: hidden ? "Hidden from lookup" : "Visible",
             },
           ],
           ctx
