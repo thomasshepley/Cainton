@@ -30,3 +30,6 @@ next-env.d.ts
 /data/*.db-journal
 /data/*.db-wal
 /data/*.db-shm
+
+# database backups made by scripts/update-site.sh
+/backups/
