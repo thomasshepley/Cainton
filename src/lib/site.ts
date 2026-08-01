@@ -308,8 +308,8 @@ export const site = {
   // Short one-liner shown under the names on the splash page
   tagline: "are getting married",
   dateDisplay: "Saturday, May 29th, 2027",
-  venueName: "The Venue",
-  venueLocation: "Manchester",
+  venueName: "The Joshua Bradley and Bluebell Suite",
+  venueLocation: "Stockport Rd, Hyde SK14 5EZ",
   rsvpDeadlineDisplay: "May 29th, 2027",
   // Email shown to guests who can't find their name
   contactEmail: "tom@sheps.me",
