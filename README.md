@@ -107,7 +107,30 @@ Let's Encrypt certificates — all included in the compose file.
    ```
    That keeps a rolling week of backups.
 
-To update the site later: `git pull && docker compose --profile https up -d --build`.
+### Updating the live site
+
+Install the update command once:
+
+```bash
+sudo ln -s ~/Cainton/scripts/update-site.sh /usr/local/bin/updatesite
+```
+
+After that, deploying any change is one word:
+
+```bash
+updatesite       # lists the incoming changes, then asks before applying
+updatesite -y    # no confirmation prompt
+updatesite -f    # rebuild even when there's nothing new to pull
+```
+
+It fetches the latest commits and shows them, backs up `data/wedding.db`
+to `backups/` (keeping the 10 most recent), pulls, rebuilds, restarts,
+and finally checks the site answers — stopping with a clear message if
+any step fails. It refuses to run if you have uncommitted edits on the
+server, so nothing you changed by hand gets overwritten.
+
+The equivalent by hand is
+`git pull && docker compose --profile https up -d --build`.
 
 ### Letting other people reach it
 
@@ -228,13 +251,16 @@ behavior. Everything is enforced server-side, not just hidden in the UI:
   hidden parties (e.g. the couple's own) can't be found, viewed, or edited
   from the guest site at all.
 - **Change the admin password** — stored hashed in the database and takes
-  precedence over `ADMIN_PASSWORD`. Locked out? Reset from your PC:
+  precedence over `ADMIN_PASSWORD`. Locked out? SSH into the server and
+  run:
 
   ```bash
+  ssh ubuntu@<your-server-ip>
+  cd Cainton
   docker compose exec wedding-rsvp node scripts/reset-admin-password.js
   ```
 
-  The password then reverts to `ADMIN_PASSWORD` from your `.env`.
+  The password then reverts to `ADMIN_PASSWORD` from the server's `.env`.
 - **Dark / light mode** — toggle in the dashboard and settings headers,
   remembered per device.
 

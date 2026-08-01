@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { site } from "@/lib/site";
+import { site, MenuDef, DIETARY_TAGS, tagById } from "@/lib/site";
 
 /* ---------- types shared with the API ---------- */
 
@@ -27,6 +27,7 @@ interface Party {
   id: number;
   label: string;
   inviteType: "full" | "evening";
+  menus: MenuDef[];
   members: PartyMember[];
   previousComment: string | null;
   previousSongRequest: string | null;
@@ -236,7 +237,8 @@ export default function RsvpPage() {
     !mealsApply ||
     attendingMembers.every((m) => {
       if (!canEditMeals(m)) return true;
-      const menu = site.menus.find((mn) => mn.id === m.menu) ?? site.menus[0];
+      const menu =
+        party!.menus.find((mn) => mn.id === m.menu) ?? party!.menus[0];
       const picks = answers[m.id]?.meals ?? {};
       return menu.courses.every((c) => picks[c.id]);
     });
@@ -506,8 +508,8 @@ export default function RsvpPage() {
                 // The menu is assigned by the couple (via the admin
                 // dashboard) — guests choose from their menu only
                 const guestMenu =
-                  site.menus.find((menu) => menu.id === m.menu) ??
-                  site.menus[0];
+                  party.menus.find((menu) => menu.id === m.menu) ??
+                  party.menus[0];
                 return (
                   <div key={m.id}>
                     <p className="font-display mb-1 text-center text-2xl">
@@ -611,6 +613,20 @@ export default function RsvpPage() {
                                   <span className="font-display block text-lg leading-snug">
                                     {selected ? "✓ " : ""}
                                     {dish.label}
+                                    {dish.tags?.map((t) => {
+                                      const tag = tagById(t);
+                                      if (!tag) return null;
+                                      return (
+                                        <span
+                                          key={t}
+                                          title={tag.label}
+                                          aria-label={tag.label}
+                                          className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-sage-dark px-1 align-middle font-body text-[0.6rem] font-medium text-sage-dark"
+                                        >
+                                          {tag.symbol}
+                                        </span>
+                                      );
+                                    })}
                                   </span>
                                   {dish.description && (
                                     <span className="mt-0.5 block text-xs leading-relaxed text-ink-soft">
@@ -642,6 +658,33 @@ export default function RsvpPage() {
                   </div>
                 );
               })}
+
+              {/* Key to the dietary symbols, showing only what's in use */}
+              {(() => {
+                const used = new Set(
+                  attendingMembers.flatMap((m) => {
+                    const menu =
+                      party.menus.find((mn) => mn.id === m.menu) ?? party.menus[0];
+                    return menu.courses.flatMap((c) =>
+                      c.options.flatMap((o) => o.tags ?? [])
+                    );
+                  })
+                );
+                const shown = DIETARY_TAGS.filter((t) => used.has(t.id));
+                if (shown.length === 0) return null;
+                return (
+                  <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 border-t border-ink-soft/15 pt-5 text-xs text-ink-soft">
+                    {shown.map((t) => (
+                      <span key={t.id} className="inline-flex items-center gap-1.5">
+                        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-sage-dark px-1 text-[0.6rem] font-medium text-sage-dark">
+                          {t.symbol}
+                        </span>
+                        {t.label}
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           ) : locks.rsvpLocked ? (
             <p className="text-center text-sm leading-relaxed text-ink-soft">

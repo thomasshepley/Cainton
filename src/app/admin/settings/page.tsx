@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { site } from "@/lib/site";
+import { site, MenuDef, DishOption, DIETARY_TAGS } from "@/lib/site";
 
 interface SiteSettings {
   lockMeals: boolean;
@@ -13,6 +13,26 @@ interface SiteSettings {
   commentsAfterDeadline: boolean;
   closedMessage: string;
 }
+
+/**
+ * New ids are generated from the label plus a short random suffix.
+ * Existing ids are never regenerated — guests' stored choices point at
+ * them, so renaming a dish keeps every response intact.
+ */
+function newId(prefix: string, label: string): string {
+  const slug =
+    label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 20) || "item";
+  return `${prefix}-${slug}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+const INPUT_CLASS =
+  "w-full rounded-lg border border-ink-soft/25 bg-white px-3 py-2 text-sm outline-none focus:border-gold";
+const SMALL_BTN =
+  "rounded-lg border border-ink-soft/30 px-2.5 py-1 text-[0.65rem] tracking-[0.1em] uppercase text-ink-soft hover:border-sage-dark hover:text-sage-dark";
 
 /** ISO timestamp -> value for <input type="datetime-local"> (local time) */
 function isoToLocal(iso: string): string {
@@ -84,6 +104,14 @@ export default function AdminSettingsPage() {
   const [rsvpDeadline, setRsvpDeadline] = useState("");
   const [closedMessage, setClosedMessage] = useState("");
 
+  // Menu editor (drafts — saved explicitly)
+  const [menus, setMenus] = useState<MenuDef[]>([]);
+  const [menusDirty, setMenusDirty] = useState(false);
+  const [menusOpen, setMenusOpen] = useState(false);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  const activeMenu = menus.find((m) => m.id === activeMenuId) ?? menus[0];
+
   // Password form
   const [pwCurrent, setPwCurrent] = useState("");
   const [pwNext, setPwNext] = useState("");
@@ -113,6 +141,10 @@ export default function AdminSettingsPage() {
       setMealDeadline(isoToLocal(data.settings.mealDeadline));
       setRsvpDeadline(isoToLocal(data.settings.rsvpDeadline));
       setClosedMessage(data.settings.closedMessage);
+      if (Array.isArray(data.menus)) {
+        setMenus(data.menus);
+        setMenusDirty(false);
+      }
       setAuthed(true);
     } catch {
       setAuthed(false);
@@ -151,6 +183,132 @@ export default function AdminSettingsPage() {
       setNotice("Saved.");
     } catch {
       setError("Could not save.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /* ---------- menu editing helpers (draft state only) ---------- */
+
+  function editMenus(fn: (draft: MenuDef[]) => MenuDef[]) {
+    setMenus((prev) => fn(structuredClone(prev)));
+    setMenusDirty(true);
+  }
+
+  const updateDish = (
+    menuId: string,
+    courseId: string,
+    dishId: string,
+    patch: Partial<DishOption>
+  ) =>
+    editMenus((d) =>
+      d.map((m) =>
+        m.id === menuId
+          ? {
+              ...m,
+              courses: m.courses.map((c) =>
+                c.id === courseId
+                  ? {
+                      ...c,
+                      options: c.options.map((o) =>
+                        o.id === dishId ? { ...o, ...patch } : o
+                      ),
+                    }
+                  : c
+              ),
+            }
+          : m
+      )
+    );
+
+  const addDish = (menuId: string, courseId: string) =>
+    editMenus((d) =>
+      d.map((m) =>
+        m.id === menuId
+          ? {
+              ...m,
+              courses: m.courses.map((c) =>
+                c.id === courseId
+                  ? {
+                      ...c,
+                      options: [
+                        ...c.options,
+                        { id: newId("dish", "new dish"), label: "", description: "" },
+                      ],
+                    }
+                  : c
+              ),
+            }
+          : m
+      )
+    );
+
+  const removeDish = (menuId: string, courseId: string, dishId: string) =>
+    editMenus((d) =>
+      d.map((m) =>
+        m.id === menuId
+          ? {
+              ...m,
+              courses: m.courses.map((c) =>
+                c.id === courseId
+                  ? { ...c, options: c.options.filter((o) => o.id !== dishId) }
+                  : c
+              ),
+            }
+          : m
+      )
+    );
+
+  const toggleTag = (
+    menuId: string,
+    courseId: string,
+    dish: DishOption,
+    tagId: string
+  ) => {
+    const has = dish.tags?.includes(tagId);
+    updateDish(menuId, courseId, dish.id, {
+      tags: has
+        ? (dish.tags ?? []).filter((t) => t !== tagId)
+        : [...(dish.tags ?? []), tagId],
+    });
+  };
+
+  /** Toggle a dish between plain and having with/without-style choices */
+  const toggleVariants = (menuId: string, courseId: string, dish: DishOption) =>
+    updateDish(menuId, courseId, dish.id, {
+      variants: dish.variants?.length
+        ? undefined
+        : [
+            { id: newId("opt", "option a"), label: "" },
+            { id: newId("opt", "option b"), label: "" },
+          ],
+    });
+
+  async function menuAction(payload: Record<string, unknown>) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-key": key },
+        body: JSON.stringify({
+          ...payload,
+          client: {
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Could not save the menus.");
+        return;
+      }
+      if (Array.isArray(data.menus)) setMenus(data.menus);
+      setMenusDirty(false);
+      setNotice("Menus saved.");
+    } catch {
+      setError("Could not save the menus.");
     } finally {
       setBusy(false);
     }
@@ -364,6 +522,232 @@ export default function AdminSettingsPage() {
         </button>
       </section>
 
+      {/* Menus */}
+      <section className="mt-4 overflow-hidden rounded-xl border border-ink-soft/20 bg-white/60">
+        <button
+          onClick={() => setMenusOpen((v) => !v)}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-cream-dark/40"
+        >
+          <span
+            className={`text-xs text-ink-soft transition-transform duration-200 ${
+              menusOpen ? "rotate-90" : ""
+            }`}
+          >
+            ▸
+          </span>
+          <span className="flex-1">
+            <span className="block text-[0.65rem] tracking-[0.25em] uppercase text-ink-soft">
+              Menu items
+            </span>
+            <span className="mt-0.5 block text-xs text-ink-soft">
+              Edit the dishes guests choose from
+            </span>
+          </span>
+          {menusDirty && (
+            <span className="rounded-full border border-gold/50 bg-gold-light px-2 py-0.5 text-[0.6rem] tracking-[0.1em] uppercase text-gold">
+              Unsaved
+            </span>
+          )}
+        </button>
+
+        {menusOpen && (
+          <div className="border-t border-ink-soft/10">
+            {/* Menu picker */}
+            <div className="flex flex-wrap gap-1.5 border-b border-ink-soft/10 px-4 py-3">
+              {menus.map((menu) => (
+                <button
+                  key={menu.id}
+                  onClick={() => setActiveMenuId(menu.id)}
+                  className={`rounded-full border px-3.5 py-1.5 text-xs transition-colors ${
+                    activeMenu?.id === menu.id
+                      ? "border-sage-dark bg-sage-dark text-cream"
+                      : "border-ink-soft/25 text-ink-soft hover:border-sage-dark hover:text-sage-dark"
+                  }`}
+                >
+                  {menu.label}
+                </button>
+              ))}
+            </div>
+
+            {activeMenu && (
+              <div className="space-y-6 px-4 py-4">
+                {activeMenu.courses.map((course) => (
+                  <div key={course.id}>
+                    <p className="text-[0.65rem] tracking-[0.3em] uppercase text-gold">
+                      {course.label}
+                    </p>
+                    <div className="mt-2 space-y-2">
+                      {course.options.map((dish) => (
+                        <div
+                          key={dish.id}
+                          className="rounded-lg border border-ink-soft/15 bg-white/70 p-3"
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className="min-w-0 flex-1 space-y-1.5">
+                              <input
+                                value={dish.label}
+                                onChange={(e) =>
+                                  updateDish(activeMenu.id, course.id, dish.id, {
+                                    label: e.target.value,
+                                  })
+                                }
+                                placeholder="Dish name"
+                                className={`${INPUT_CLASS} font-medium`}
+                              />
+                              <input
+                                value={dish.description ?? ""}
+                                onChange={(e) =>
+                                  updateDish(activeMenu.id, course.id, dish.id, {
+                                    description: e.target.value,
+                                  })
+                                }
+                                placeholder="Description (optional)"
+                                className={`${INPUT_CLASS} text-xs`}
+                              />
+                            </div>
+                            <button
+                              onClick={() => {
+                                if (
+                                  confirm(
+                                    `Remove "${dish.label || "this dish"}"? Anyone who already chose it will be left without this course.`
+                                  )
+                                )
+                                  removeDish(activeMenu.id, course.id, dish.id);
+                              }}
+                              title="Remove dish"
+                              className="mt-1 text-xs text-red-800/50 hover:text-red-800"
+                            >
+                              ✕
+                            </button>
+                          </div>
+
+                          {/* Dietary symbols */}
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <span className="text-[0.6rem] tracking-[0.15em] uppercase text-ink-soft/70">
+                              Suitable for
+                            </span>
+                            {DIETARY_TAGS.map((tag) => {
+                              const on = dish.tags?.includes(tag.id) ?? false;
+                              return (
+                                <button
+                                  key={tag.id}
+                                  onClick={() =>
+                                    toggleTag(activeMenu.id, course.id, dish, tag.id)
+                                  }
+                                  title={tag.label}
+                                  className={`rounded-full border px-2.5 py-0.5 text-[0.65rem] transition-colors ${
+                                    on
+                                      ? "border-sage-dark bg-sage-dark text-cream"
+                                      : "border-ink-soft/25 text-ink-soft hover:border-sage-dark hover:text-sage-dark"
+                                  }`}
+                                >
+                                  {tag.symbol} {tag.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* With / without style choices */}
+                          {dish.variants?.length ? (
+                            <div className="mt-2 space-y-1.5 rounded-lg bg-cream-dark/40 p-2">
+                              <p className="text-[0.6rem] tracking-[0.15em] uppercase text-ink-soft/70">
+                                Guest picks one
+                              </p>
+                              {dish.variants.map((v, vi) => (
+                                <input
+                                  key={v.id}
+                                  value={v.label}
+                                  onChange={(e) => {
+                                    const next = [...dish.variants!];
+                                    next[vi] = { ...v, label: e.target.value };
+                                    updateDish(activeMenu.id, course.id, dish.id, {
+                                      variants: next,
+                                    });
+                                  }}
+                                  placeholder={`Choice ${vi + 1} (e.g. With cheese)`}
+                                  className={`${INPUT_CLASS} text-xs`}
+                                />
+                              ))}
+                              <div className="flex gap-2 pt-0.5">
+                                <button
+                                  onClick={() =>
+                                    updateDish(activeMenu.id, course.id, dish.id, {
+                                      variants: [
+                                        ...dish.variants!,
+                                        { id: newId("opt", "option"), label: "" },
+                                      ],
+                                    })
+                                  }
+                                  className={SMALL_BTN}
+                                >
+                                  + Choice
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    toggleVariants(activeMenu.id, course.id, dish)
+                                  }
+                                  className={SMALL_BTN}
+                                >
+                                  Remove choices
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() =>
+                                toggleVariants(activeMenu.id, course.id, dish)
+                              }
+                              className={`${SMALL_BTN} mt-2`}
+                              title="For dishes offered with or without something, e.g. cheese"
+                            >
+                              + Add a with / without choice
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => addDish(activeMenu.id, course.id)}
+                        className={SMALL_BTN}
+                      >
+                        + Add dish to {course.label.toLowerCase()}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 border-t border-ink-soft/10 px-4 py-3">
+              <p className="flex-1 text-[0.65rem] leading-relaxed text-ink-soft">
+                Renaming a dish is safe — guests who chose it keep their
+                choice.
+              </p>
+              <button
+                onClick={() => {
+                  if (
+                    confirm(
+                      "Discard all menu edits and restore the original dishes?"
+                    )
+                  )
+                    menuAction({ action: "resetMenus" });
+                }}
+                disabled={busy}
+                className="rounded-lg border border-ink-soft/30 px-4 py-2 text-xs tracking-[0.15em] uppercase text-ink-soft hover:border-ink hover:text-ink disabled:opacity-40"
+              >
+                Reset
+              </button>
+              <button
+                onClick={() => menuAction({ action: "saveMenus", menus })}
+                disabled={busy || !menusDirty}
+                className="rounded-lg border border-sage-dark bg-sage-dark px-6 py-2 text-xs tracking-[0.2em] uppercase text-cream transition-all enabled:hover:bg-transparent enabled:hover:text-sage-dark disabled:opacity-40"
+              >
+                Save menus
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+
       {/* Security */}
       <section className="mt-4 rounded-xl border border-ink-soft/20 bg-white/60 p-4">
         <h2 className="text-[0.65rem] tracking-[0.25em] uppercase text-ink-soft">
@@ -402,13 +786,21 @@ export default function AdminSettingsPage() {
             Change password
           </button>
         </form>
-        <p className="mt-3 border-t border-ink-soft/10 pt-3 text-xs leading-relaxed text-ink-soft">
-          Locked out? Reset from your PC&apos;s command line — the password
-          reverts to the <code>ADMIN_PASSWORD</code> in your <code>.env</code>:
-          <code className="mt-1 block rounded bg-cream-dark px-2 py-1 text-[0.7rem] break-all">
-            docker compose exec wedding-rsvp node scripts/reset-admin-password.js
-          </code>
-        </p>
+        <div className="mt-4 border-t border-ink-soft/10 pt-3">
+          <p className="text-xs font-medium">
+            Admin only — reset the password over SSH
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+            Locked out? Connect to the server and run these three commands.
+            The password then reverts to <code>ADMIN_PASSWORD</code> in the
+            server&apos;s <code>.env</code> file.
+          </p>
+          <pre className="mt-2 overflow-x-auto rounded-lg bg-cream-dark px-3 py-2 text-[0.7rem] leading-relaxed">
+            {`ssh ubuntu@<your-server-ip>
+cd Cainton
+docker compose exec wedding-rsvp node scripts/reset-admin-password.js`}
+          </pre>
+        </div>
       </section>
     </main>
   );

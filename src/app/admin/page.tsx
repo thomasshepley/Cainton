@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { site, menuById, parseMeals, DISH_LABELS } from "@/lib/site";
+import { site, parseMeals, MenuDef } from "@/lib/site";
 
 interface AdminRow {
   guest_id: number;
@@ -37,6 +37,26 @@ interface ActivityRow {
 }
 
 type StatKey = "invited" | "attending" | "declined" | "awaiting";
+
+function menuOf(menus: MenuDef[], id: string): MenuDef | undefined {
+  return menus.find((m) => m.id === id);
+}
+
+/** dish id -> label, including variants, for the current menus */
+function dishLabelMap(menus: MenuDef[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const menu of menus) {
+    for (const course of menu.courses) {
+      for (const o of course.options) {
+        map.set(o.id, o.label);
+        for (const v of o.variants ?? []) {
+          map.set(v.id, `${o.label} — ${v.label.toLowerCase()}`);
+        }
+      }
+    }
+  }
+  return map;
+}
 
 /** Short human summary of a user-agent string, e.g. "Chrome · iPhone" */
 function deviceSummary(ua: string | null): string {
@@ -136,6 +156,8 @@ export default function AdminPage() {
   const [key, setKey] = useState("");
   const [authed, setAuthed] = useState(false);
   const [rows, setRows] = useState<AdminRow[]>([]);
+  // Menus are admin-editable, so they arrive with the overview payload
+  const [menus, setMenus] = useState<MenuDef[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [openParties, setOpenParties] = useState<Set<number>>(new Set());
@@ -193,6 +215,7 @@ export default function AdminPage() {
       }
       const data = await res.json();
       setRows(data.rows);
+      if (Array.isArray(data.menus)) setMenus(data.menus);
       setAuthed(true);
       sessionStorage.setItem("adminKey", adminKey);
       // Activity log loads alongside — failures here shouldn't block the page
@@ -297,6 +320,8 @@ export default function AdminPage() {
       return { id, ...p, attending, declined, awaiting };
     });
   }, [rows]);
+
+  const dishLabels = useMemo(() => dishLabelMap(menus), [menus]);
 
   const activityFields = useMemo(
     () => [...new Set(activity.map((a) => a.field))].sort(),
@@ -514,7 +539,7 @@ export default function AdminPage() {
             Meal counts
           </h2>
           <div className="mt-2 space-y-3">
-            {site.menus.map((menu) => {
+            {menus.map((menu) => {
               const courses = menu.courses
                 .map((course) => ({
                   course,
@@ -723,14 +748,14 @@ export default function AdminPage() {
                                   disabled={busy}
                                   className={SELECT_CLASS}
                                 >
-                                  {site.menus.map((m) => (
+                                  {menus.map((m) => (
                                     <option key={m.id} value={m.id}>
                                       {m.label}
                                     </option>
                                   ))}
                                 </select>
                                 {r.attending === 1 &&
-                                  menuById(r.menu).courses.map((course) => {
+                                  (menuOf(menus, r.menu)?.courses ?? []).map((course) => {
                                     const picks = parseMeals(r.meal);
                                     const current = picks[course.id] ?? "";
                                     return (
@@ -783,17 +808,19 @@ export default function AdminPage() {
                               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                                 <p className="text-xs text-ink-soft">
                                   <span className="text-ink-soft/70">
-                                    {menuById(r.menu).label}
+                                    {menuOf(menus, r.menu)?.label ?? r.menu}
                                   </span>
                                   {r.attending === 1 && (
                                     <>
                                       {" · "}
                                     {(() => {
                                         const picks = parseMeals(r.meal);
-                                        const chosen = menuById(r.menu)
-                                          .courses.map((c) =>
+                                        const chosen = (
+                                          menuOf(menus, r.menu)?.courses ?? []
+                                        )
+                                          .map((c) =>
                                             picks[c.id]
-                                              ? DISH_LABELS.get(picks[c.id])
+                                              ? dishLabels.get(picks[c.id])
                                               : null
                                           )
                                           .filter(Boolean);

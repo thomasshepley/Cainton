@@ -13,7 +13,12 @@ import {
   setPartyInviteType,
 } from "@/lib/db";
 import { isAdmin } from "@/lib/adminAuth";
-import { MENU_IDS, MENU_COURSE_DISHES, menuById } from "@/lib/site";
+import {
+  getMenus,
+  menuById,
+  menuCourseDishes,
+  menuIds,
+} from "@/lib/menus";
 import { diffGuestResponse, requestContext } from "@/lib/activity";
 
 /**
@@ -126,13 +131,16 @@ export async function POST(req: NextRequest) {
       }
       const attending =
         body.attending === true ? true : body.attending === false ? false : null;
+      const menus = getMenus();
       const menu =
-        typeof body.menu === "string" && MENU_IDS.has(body.menu)
+        typeof body.menu === "string" && menuIds(menus).has(body.menu)
           ? body.menu
           : undefined;
       // Keep only picks that are valid dishes for the guest's menu.
       // Admins may set courses one at a time, so partial picks are fine.
-      const courseDishes = menu ? MENU_COURSE_DISHES.get(menu) : undefined;
+      const courseDishes = menu
+        ? menuCourseDishes(menus).get(menu)
+        : undefined;
       let meal: string | null = null;
       if (
         typeof body.meals === "object" &&
@@ -167,8 +175,8 @@ export async function POST(req: NextRequest) {
             partyLabel: before.party_label,
             subject: before.full_name,
             field: "Menu",
-            oldValue: menuById(before.menu).label,
-            newValue: menuById(menu).label,
+            oldValue: menuById(menus, before.menu).label,
+            newValue: menuById(menus, menu).label,
           });
         }
         if (attending === null) {

@@ -16,6 +16,28 @@ export interface DishOption {
   label: string;
   description?: string;
   variants?: DishVariant[];
+  /** Dietary tag ids from DIETARY_TAGS, shown as symbols to guests */
+  tags?: string[];
+}
+
+/**
+ * Dietary symbols shown next to dishes. Add or reword freely — each
+ * dish stores only the tag id, so changes here apply everywhere.
+ */
+export const DIETARY_TAGS = [
+  { id: "vegetarian", label: "Vegetarian", symbol: "V" },
+  { id: "vegan", label: "Vegan", symbol: "VG" },
+  { id: "gluten-free", label: "Gluten free", symbol: "GF" },
+  { id: "dairy-free", label: "Dairy free", symbol: "DF" },
+  { id: "nuts", label: "Contains nuts", symbol: "N" },
+] as const;
+
+export type DietaryTag = (typeof DIETARY_TAGS)[number];
+
+export const TAG_IDS = new Set<string>(DIETARY_TAGS.map((t) => t.id));
+
+export function tagById(id: string): DietaryTag | undefined {
+  return DIETARY_TAGS.find((t) => t.id === id);
 }
 
 export interface CourseDef {
@@ -107,11 +129,13 @@ const MENUS: MenuDef[] = [
           },
           {
             id: "kd-st-soup",
+            tags: ["vegetarian"],
             label: "Homemade Tomato Soup",
             description: "",
           },
           {
             id: "kd-st-hummus",
+            tags: ["vegetarian", "vegan"],
             label: "Hummus & Vegetable Crudités",
             description: "",
           },
@@ -132,6 +156,7 @@ const MENUS: MenuDef[] = [
           },
           {
             id: "kd-mn-pasta",
+            tags: ["vegetarian"],
             label: "Pasta in Tomato & Basil Sauce",
             description: "",
           },
@@ -148,16 +173,19 @@ const MENUS: MenuDef[] = [
         options: [
           {
             id: "kd-ds-icecream",
+            tags: ["vegetarian"],
             label: "Ice Cream",
             description: "Vanilla, chocolate or strawberry",
           },
           {
             id: "kd-ds-brownie",
+            tags: ["vegetarian"],
             label: "Triple Chocolate Brownie",
             description: "Served with ice cream",
           },
           {
             id: "kd-ds-toffee",
+            tags: ["vegetarian"],
             label: "Sticky Toffee Pudding",
             description: "Served with warm custard",
           },
@@ -177,6 +205,7 @@ const MENUS: MenuDef[] = [
         options: [
           {
             id: "ca-st-tbc",
+            tags: ["gluten-free"],
             label: "Gluten-Free Starter (TBC)",
             description: "Being finalised with the venue",
           },
@@ -188,6 +217,7 @@ const MENUS: MenuDef[] = [
         options: [
           {
             id: "ca-mn-tbc",
+            tags: ["gluten-free"],
             label: "Gluten-Free Main (TBC)",
             description: "Being finalised with the venue",
           },
@@ -199,6 +229,7 @@ const MENUS: MenuDef[] = [
         options: [
           {
             id: "ca-ds-tbc",
+            tags: ["gluten-free"],
             label: "Gluten-Free Dessert (TBC)",
             description: "Being finalised with the venue",
           },
@@ -216,11 +247,13 @@ const MENUS: MenuDef[] = [
         options: [
           {
             id: "ck-st-soup",
+            tags: ["vegetarian", "gluten-free"],
             label: "Homemade Tomato Soup",
             description: "Gluten-free",
           },
           {
             id: "ck-st-hummus",
+            tags: ["vegetarian", "vegan", "gluten-free"],
             label: "Hummus & Vegetable Crudités",
             description: "Gluten-free",
           },
@@ -232,6 +265,7 @@ const MENUS: MenuDef[] = [
         options: [
           {
             id: "ck-mn-burger",
+            tags: ["gluten-free"],
             label: "4oz Beef Burger with Fries",
             description: "Gluten-free",
             variants: [
@@ -241,6 +275,7 @@ const MENUS: MenuDef[] = [
           },
           {
             id: "ck-mn-chicken",
+            tags: ["gluten-free"],
             label: "Grilled Chicken Breast",
             description:
               "Gluten-free — served with fries or mash and garden peas",
@@ -253,6 +288,7 @@ const MENUS: MenuDef[] = [
         options: [
           {
             id: "ck-ds-icecream",
+            tags: ["vegetarian", "gluten-free"],
             label: "Ice Cream",
             description: "Vanilla, chocolate or strawberry — gluten-free",
           },
@@ -272,6 +308,7 @@ const MENUS: MenuDef[] = [
         options: [
           {
             id: "vg-st-tbc",
+            tags: ["vegetarian"],
             label: "Vegetarian Starter (TBC)",
             description: "Being finalised with the venue",
           },
@@ -283,6 +320,7 @@ const MENUS: MenuDef[] = [
         options: [
           {
             id: "vg-mn-tbc",
+            tags: ["vegetarian"],
             label: "Vegetarian Main (TBC)",
             description: "Being finalised with the venue",
           },
@@ -294,6 +332,7 @@ const MENUS: MenuDef[] = [
         options: [
           {
             id: "vg-ds-tbc",
+            tags: ["vegetarian"],
             label: "Vegetarian Dessert (TBC)",
             description: "Being finalised with the venue",
           },
@@ -329,59 +368,12 @@ export const site = {
 
 export type Menu = MenuDef;
 
-/** Lookup helpers used by the app and API */
-export const MENU_IDS = new Set<string>(site.menus.map((m) => m.id));
-export const DEFAULT_MENU = "adult";
-
-export function menuById(id: string): Menu {
-  return site.menus.find((m) => m.id === id) ?? site.menus[0];
-}
-
 /**
- * Storable dish ids for an option: the variant ids when the dish has
- * variants (the plain option id is then NOT a valid stored value —
- * a variant must be chosen), otherwise the option id itself.
+ * Menu id every guest starts on. The menus themselves are editable from
+ * the admin Settings page — server code reads them via lib/menus.ts,
+ * which falls back to the definitions above when nothing is saved.
  */
-export function storableIds(o: DishOption): string[] {
-  return o.variants?.length ? o.variants.map((v) => v.id) : [o.id];
-}
-
-/** dish id -> label, across every menu, course and variant */
-export const DISH_LABELS = new Map<string, string>();
-for (const menu of site.menus) {
-  for (const course of menu.courses) {
-    for (const o of course.options) {
-      DISH_LABELS.set(o.id, o.label);
-      for (const v of o.variants ?? []) {
-        DISH_LABELS.set(v.id, `${o.label} — ${v.label.toLowerCase()}`);
-      }
-    }
-  }
-}
-
-/** menu id -> course id -> set of storable dish ids (for validation) */
-export const MENU_COURSE_DISHES = new Map<string, Map<string, Set<string>>>(
-  site.menus.map((menu) => [
-    menu.id,
-    new Map(
-      menu.courses.map((course) => [
-        course.id,
-        new Set<string>(course.options.flatMap(storableIds)),
-      ])
-    ),
-  ])
-);
-
-/** Every course id in display order (union across menus) */
-export const COURSE_ORDER: { id: string; label: string }[] = (() => {
-  const seen = new Map<string, string>();
-  for (const menu of site.menus) {
-    for (const course of menu.courses) {
-      if (!seen.has(course.id)) seen.set(course.id, course.label);
-    }
-  }
-  return [...seen.entries()].map(([id, label]) => ({ id, label }));
-})();
+export const DEFAULT_MENU = "adult";
 
 /**
  * A guest's meal choices are stored as a JSON object mapping course id

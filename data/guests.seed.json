@@ -4,8 +4,14 @@
     "guests": [
       "Lauren Cain",
       "Aaron Clayton",
-      { "name": "Hughie Clayton", "menu": "children" },
-      { "name": "Alfie Clayton", "menu": "children" }
+      {
+        "name": "Hughie Clayton",
+        "menu": "children"
+      },
+      {
+        "name": "Alfie Clayton",
+        "menu": "children"
+      }
     ]
   },
   {
@@ -34,8 +40,14 @@
     "guests": [
       "Lorraine Clayton",
       "Chris Clayton",
-      { "name": "Kailem Clayton", "menu": "children" },
-      { "name": "Orion Clayton", "menu": "children" },
+      {
+        "name": "Kailem Clayton",
+        "menu": "children"
+      },
+      {
+        "name": "Orion Clayton",
+        "menu": "children"
+      },
       "Sam Clayton",
       "Ben Clayton",
       "Callum Clayton",
@@ -48,7 +60,10 @@
     "guests": [
       "Becca Cain",
       "Nick Curtis",
-      { "name": "Teddy Curtis", "menu": "children" }
+      {
+        "name": "Teddy Curtis",
+        "menu": "children"
+      }
     ]
   },
   {
@@ -57,7 +72,10 @@
       "Mike Fagg",
       "Becky Fagg",
       "Kim Fagg",
-      { "name": "Alana Fagg", "menu": "coeliac-kids" }
+      {
+        "name": "Alana Fagg",
+        "menu": "coeliac-kids"
+      }
     ]
   },
   {
@@ -65,7 +83,10 @@
     "guests": [
       "Jess Miskell",
       "Adam Roscoe",
-      { "name": "Arnie Short", "menu": "children" }
+      {
+        "name": "Arnie Short",
+        "menu": "children"
+      }
     ]
   },
   {
@@ -74,7 +95,10 @@
       "Jay Whittaker",
       "Chloe Whittaker",
       "Oliver Whittaker",
-      { "name": "Marley Whittaker", "menu": "children" }
+      {
+        "name": "Marley Whittaker",
+        "menu": "children"
+      }
     ]
   },
   {
@@ -82,52 +106,331 @@
     "guests": [
       "Megan Costello",
       "Brendan Costello",
-      { "name": "Pippa Costello", "menu": "children" },
-      { "name": "Duffy Costello", "menu": "children" }
+      {
+        "name": "Pippa Costello",
+        "menu": "children"
+      },
+      {
+        "name": "Duffy Costello",
+        "menu": "children"
+      }
     ]
   },
   {
     "label": "Cope Family",
-    "guests": ["Joanne Cope", "Tony Cope"]
+    "guests": [
+      "Joanne Cope",
+      "Tony Cope"
+    ]
   },
   {
     "label": "Rhodes Family",
-    "guests": ["Hannah Rhodes", "Jack Rushmere"]
+    "guests": [
+      "Hannah Rhodes",
+      "Jack Rushmere"
+    ]
   },
   {
     "label": "Morgan Family",
-    "guests": ["Ewan Morgan", "Caitlin Hoyle"]
+    "guests": [
+      "Ewan Morgan",
+      "Caitlin Hoyle"
+    ]
   },
   {
     "label": "Morrison Family",
     "guests": [
       "Elliot Morrison",
       "Holly Gore",
-      { "name": "Blake Morrison", "menu": "children" }
+      {
+        "name": "Blake Morrison",
+        "menu": "children"
+      }
     ]
   },
   {
     "label": "Bates Family",
-    "guests": ["Cameron Bates", "Natasha Rowan"]
+    "guests": [
+      "Cameron Bates",
+      "Natasha Rowan"
+    ]
   },
   {
     "label": "James Jones",
-    "guests": ["James Jones"]
+    "guests": [
+      "James Jones"
+    ]
   },
   {
     "label": "Abbie Storey",
-    "guests": ["Abbie Storey"]
+    "guests": [
+      "Abbie Storey"
+    ]
   },
   {
     "label": "Shaq Henry",
-    "guests": ["Shaq Henry"]
+    "guests": [
+      "Shaq Henry"
+    ]
   },
   {
     "label": "Scott Blackett",
-    "guests": ["Scott Blackett"]
+    "guests": [
+      "Scott Blackett"
+    ]
   },
   {
     "label": "Jamie Antcliffe",
-    "guests": ["Jamie Antcliffe"]
+    "guests": [
+      "Jamie Antcliffe"
+    ]
+  },
+  {
+    "label": "Nanny Wendy & Noel",
+    "guests": [
+      "Nanny Wendy",
+      "Noel"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Grandma Lynn",
+    "guests": [
+      "Grandma Lynn"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Gabby",
+    "guests": [
+      "Gabby"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Erika Hopkinson",
+    "guests": [
+      "Erika Hopkinson"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Lauren Walters",
+    "guests": [
+      "Lauren Walters"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Shiv & Sam",
+    "guests": [
+      "Shiv",
+      "Sam"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Abi Harreld",
+    "guests": [
+      "Abi Harreld"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Stacy Truscott",
+    "guests": [
+      "Stacy Truscott"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Jess Murphy",
+    "guests": [
+      "Jess Murphy"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Andrea Smith",
+    "guests": [
+      "Andrea Smith"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Jamie Garde & Emma",
+    "guests": [
+      "Jamie Garde",
+      "Emma (with Jamie Garde)"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Connor Yates & Emma",
+    "guests": [
+      "Connor Yates",
+      "Emma (with Connor Yates)"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Kelly & Noah",
+    "guests": [
+      "Kelly (with Noah)",
+      "Noah"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Shannon & Bryce",
+    "guests": [
+      "Shannon",
+      "Bryce"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Georgia Walsh",
+    "guests": [
+      "Georgia Walsh"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Carol & Kev Ross",
+    "guests": [
+      "Carol Ross",
+      "Kev Ross"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Josh Ross & Guest",
+    "guests": [
+      "Josh Ross",
+      "Guest of Josh Ross"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "David Williams",
+    "guests": [
+      "David Williams"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Liam Duckworth",
+    "guests": [
+      "Liam Duckworth"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Eckrun & Rebecca Rawlinson",
+    "guests": [
+      "Eckrun Rawlinson",
+      "Rebecca Rawlinson"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Vicky & Martin",
+    "guests": [
+      "Vicky (with Martin)",
+      "Martin"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Ashleigh & Ryan",
+    "guests": [
+      "Ashleigh",
+      "Ryan"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Matt & Stacy",
+    "guests": [
+      "Matt (with Stacy)",
+      "Stacy (with Matt)"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Mark Draper & Kelly Louise",
+    "guests": [
+      "Mark Draper",
+      "Kelly Louise"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Paul Garde",
+    "guests": [
+      "Paul Garde"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Neil Garde",
+    "guests": [
+      "Neil Garde"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Lee & Vicky Clayton",
+    "guests": [
+      "Lee Clayton",
+      "Vicky Clayton"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Linda & John",
+    "guests": [
+      "Linda (with John)",
+      "John"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Liam Garde",
+    "guests": [
+      "Liam Garde"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Dawn Healey",
+    "guests": [
+      "Dawn Healey"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Alex Feno",
+    "guests": [
+      "Alex Feno"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Nicky & Tony Titherington",
+    "guests": [
+      "Nicky Titherington",
+      "Tony Titherington"
+    ],
+    "invite": "evening"
+  },
+  {
+    "label": "Kyle & Jess",
+    "guests": [
+      "Kyle (with Jess)",
+      "Jess (with Kyle)"
+    ],
+    "invite": "evening"
   }
 ]
