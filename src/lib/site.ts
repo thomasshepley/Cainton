@@ -307,15 +307,15 @@ export const site = {
   coupleNames: "Lauren Cain & Aaron Clayton",
   // Short one-liner shown under the names on the splash page
   tagline: "are getting married",
-  dateDisplay: "Saturday, June 12, 2027",
-  venueName: "The Pub Name",
+  dateDisplay: "Saturday, May 29th, 2027",
+  venueName: "The Venue",
   venueLocation: "Manchester",
-  rsvpDeadlineDisplay: "May 1, 2027",
+  rsvpDeadlineDisplay: "May 29th, 2027",
   // Email shown to guests who can't find their name
   contactEmail: "tom@sheps.me",
   // How each invitation tier is described to guests on the RSVP page
   inviteInfo: {
-    full: "You are warmly invited to the full day — ceremony, lunch, and evening celebration.",
+    full: "You are invited to the full day — ceremony, lunch, and evening celebration.",
     evening: "You are warmly invited to the evening celebration.",
   },
   /**
