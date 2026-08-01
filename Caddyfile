@@ -1,0 +1,14 @@
+# Reverse proxy with automatic HTTPS (Let's Encrypt).
+# The domain comes from DOMAIN in your .env — see docker-compose.yml.
+{$DOMAIN} {
+	reverse_proxy wedding-rsvp:3000
+	encode gzip
+
+	header {
+		# Basic hardening for an internet-facing site
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}

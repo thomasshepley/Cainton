@@ -2,7 +2,9 @@ services:
   wedding-rsvp:
     build: .
     ports:
-      - "3000:3000"
+      # Bound to localhost only — on a VPS the public entrance is Caddy
+      # (https profile) or a tunnel, never the bare Node server
+      - "127.0.0.1:3000:3000"
     environment:
       # Change this before sharing the site!
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-cainton-admin}
@@ -10,6 +12,27 @@ services:
       # RSVPs live in ./data/wedding.db on your PC, so they survive
       # container rebuilds and restarts
       - ./data:/app/data
+    restart: unless-stopped
+
+  # Production on a VPS: Caddy terminates HTTPS for your domain with
+  # automatic Let's Encrypt certificates.
+  # 1. Point an A record for your (sub)domain at the VPS IP
+  # 2. Set DOMAIN=rsvp.yourdomain.com in .env
+  # 3. docker compose --profile https up -d --build
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - wedding-rsvp
     restart: unless-stopped
 
   # Optional: expose the site to the internet with a free Cloudflare
@@ -39,3 +62,7 @@ services:
     depends_on:
       - wedding-rsvp
     restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
