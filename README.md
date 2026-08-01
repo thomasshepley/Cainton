@@ -63,6 +63,52 @@ docker compose down          # stop
 docker compose up -d --build # rebuild after changing code/config
 ```
 
+## Deploying to a VPS (production)
+
+The recommended production setup: a small VPS (an entry-level 2 GB
+instance from OVH/Hetzner/DigitalOcean is plenty for a wedding), your
+domain pointed at it, and Caddy terminating HTTPS with automatic
+Let's Encrypt certificates — all included in the compose file.
+
+1. **Order the VPS** — choose an Ubuntu LTS image (or a "Docker" app
+   image if offered). SSH in.
+2. **Install Docker** (skip if the image included it):
+   ```bash
+   curl -fsSL https://get.docker.com | sh
+   ```
+3. **DNS** — in your registrar's panel (OVH: Web Cloud → Domain names →
+   DNS zone), add an `A` record for e.g. `rsvp` pointing at the VPS's
+   IPv4 address.
+4. **Deploy**:
+   ```bash
+   git clone <this repo> && cd <repo>
+   cp .env.example .env
+   nano .env        # strong ADMIN_PASSWORD + DOMAIN=rsvp.yourdomain.com
+   nano data/guests.seed.json   # confirm the real guest list
+   docker compose --profile https up -d --build
+   ```
+   First build takes a few minutes. Caddy fetches the certificate on
+   first request — the site is then live at `https://rsvp.yourdomain.com`
+   (and `/admin` works from anywhere).
+5. **If the build is killed on a 2 GB VPS** (out of memory), add swap
+   once and rebuild:
+   ```bash
+   sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile \
+     && sudo mkswap /swapfile && sudo swapon /swapfile
+   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+   ```
+6. **Firewall** — if the VPS has one enabled, open ports 80 and 443
+   (`sudo ufw allow 80,443/tcp`). The app itself listens only on
+   localhost; Caddy is the sole public entrance.
+7. **Backups** — everything lives in `data/wedding.db`. A nightly copy
+   is one cron line:
+   ```bash
+   (crontab -l; echo "0 3 * * * cp ~/<repo>/data/wedding.db ~/wedding-backup-\$(date +\%a).db") | crontab -
+   ```
+   That keeps a rolling week of backups.
+
+To update the site later: `git pull && docker compose --profile https up -d --build`.
+
 ### Letting other people reach it
 
 - **Same Wi-Fi/LAN**: they can visit `http://<your-PC's-IP>:3000`
