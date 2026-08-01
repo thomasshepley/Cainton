@@ -1,15 +1,88 @@
 import { NextRequest, NextResponse } from "next/server";
-import { logActivity, setSetting } from "@/lib/db";
+import { deleteSetting, logActivity, setSetting } from "@/lib/db";
 import { checkPassword, hashPassword, isAdmin } from "@/lib/adminAuth";
 import { readSettings, SiteSettings } from "@/lib/settings";
 import { requestContext } from "@/lib/activity";
+import { DEFAULT_MENUS, getMenus } from "@/lib/menus";
+import { MenuDef } from "@/lib/site";
 
-/** GET current settings (admin only) */
+/** GET current settings and menus (admin only) */
 export async function GET(req: NextRequest) {
   if (!isAdmin(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return NextResponse.json({ settings: readSettings() });
+  return NextResponse.json({ settings: readSettings(), menus: getMenus() });
+}
+
+/**
+ * Validate an incoming menu structure. Returns an error message, or
+ * null when the menus are usable.
+ */
+function validateMenus(value: unknown): string | null {
+  if (!Array.isArray(value) || value.length === 0) {
+    return "There must be at least one menu.";
+  }
+  const seenIds = new Set<string>();
+  for (const menu of value as MenuDef[]) {
+    if (!menu?.id || typeof menu.id !== "string") return "A menu is missing its id.";
+    if (seenIds.has(menu.id)) return `Duplicate menu id "${menu.id}".`;
+    seenIds.add(menu.id);
+    if (!menu.label?.trim()) return "Every menu needs a name.";
+    if (!Array.isArray(menu.courses) || menu.courses.length === 0) {
+      return `"${menu.label}" needs at least one course.`;
+    }
+    for (const course of menu.courses) {
+      if (!course?.id || !course.label?.trim()) {
+        return `A course in "${menu.label}" needs a name.`;
+      }
+      if (!Array.isArray(course.options) || course.options.length === 0) {
+        return `"${course.label}" in "${menu.label}" needs at least one dish.`;
+      }
+      for (const dish of course.options) {
+        if (!dish?.id || typeof dish.id !== "string") {
+          return "A dish is missing its id.";
+        }
+        if (!dish.label?.trim()) {
+          return `A dish in "${course.label}" needs a name.`;
+        }
+        if (seenIds.has(dish.id)) return `Duplicate dish id "${dish.id}".`;
+        seenIds.add(dish.id);
+        for (const v of dish.variants ?? []) {
+          if (!v?.id || !v.label?.trim()) {
+            return `An option of "${dish.label}" needs a name.`;
+          }
+          if (seenIds.has(v.id)) return `Duplicate option id "${v.id}".`;
+          seenIds.add(v.id);
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/** Strip unknown fields so only the menu shape is persisted */
+function normalizeMenus(value: MenuDef[]): MenuDef[] {
+  return value.map((m) => ({
+    id: m.id,
+    label: m.label.trim(),
+    courses: m.courses.map((c) => ({
+      id: c.id,
+      label: c.label.trim(),
+      options: c.options.map((o) => ({
+        id: o.id,
+        label: o.label.trim(),
+        description: (o.description ?? "").trim(),
+        ...(o.variants?.length
+          ? {
+              variants: o.variants.map((v) => ({
+                id: v.id,
+                label: v.label.trim(),
+              })),
+            }
+          : {}),
+      })),
+    })),
+  }));
 }
 
 const BOOL_KEYS: (keyof SiteSettings)[] = [
@@ -27,6 +100,8 @@ const TEXT_KEYS: (keyof SiteSettings)[] = [
 /**
  * POST { action: "update", changes: Partial<SiteSettings> }
  * POST { action: "changePassword", current, next }
+ * POST { action: "saveMenus", menus }
+ * POST { action: "resetMenus" }
  */
 export async function POST(req: NextRequest) {
   if (!isAdmin(req)) {
@@ -70,6 +145,49 @@ export async function POST(req: NextRequest) {
       ctx
     );
     return NextResponse.json({ ok: true });
+  }
+
+  if (body.action === "saveMenus") {
+    const problem = validateMenus(body.menus);
+    if (problem) {
+      return NextResponse.json({ error: problem }, { status: 400 });
+    }
+    const menus = normalizeMenus(body.menus as MenuDef[]);
+    setSetting("menus", JSON.stringify(menus));
+    logActivity(
+      [
+        {
+          partyId: null,
+          partyLabel: "",
+          subject: "Menus",
+          field: "Settings",
+          oldValue: null,
+          newValue: `Menus updated (${menus
+            .map((m) => m.label)
+            .join(", ")})`,
+        },
+      ],
+      ctx
+    );
+    return NextResponse.json({ ok: true, menus: getMenus() });
+  }
+
+  if (body.action === "resetMenus") {
+    deleteSetting("menus");
+    logActivity(
+      [
+        {
+          partyId: null,
+          partyLabel: "",
+          subject: "Menus",
+          field: "Settings",
+          oldValue: null,
+          newValue: "Menus reset to the built-in defaults",
+        },
+      ],
+      ctx
+    );
+    return NextResponse.json({ ok: true, menus: DEFAULT_MENUS });
   }
 
   if (body.action === "update") {

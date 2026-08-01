@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { site } from "@/lib/site";
+import { site, MenuDef } from "@/lib/site";
 
 /* ---------- types shared with the API ---------- */
 
@@ -27,6 +27,7 @@ interface Party {
   id: number;
   label: string;
   inviteType: "full" | "evening";
+  menus: MenuDef[];
   members: PartyMember[];
   previousComment: string | null;
   previousSongRequest: string | null;
@@ -236,7 +237,8 @@ export default function RsvpPage() {
     !mealsApply ||
     attendingMembers.every((m) => {
       if (!canEditMeals(m)) return true;
-      const menu = site.menus.find((mn) => mn.id === m.menu) ?? site.menus[0];
+      const menu =
+        party!.menus.find((mn) => mn.id === m.menu) ?? party!.menus[0];
       const picks = answers[m.id]?.meals ?? {};
       return menu.courses.every((c) => picks[c.id]);
     });
@@ -506,8 +508,8 @@ export default function RsvpPage() {
                 // The menu is assigned by the couple (via the admin
                 // dashboard) — guests choose from their menu only
                 const guestMenu =
-                  site.menus.find((menu) => menu.id === m.menu) ??
-                  site.menus[0];
+                  party.menus.find((menu) => menu.id === m.menu) ??
+                  party.menus[0];
                 return (
                   <div key={m.id}>
                     <p className="font-display mb-1 text-center text-2xl">

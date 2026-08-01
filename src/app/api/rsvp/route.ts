@@ -8,12 +8,8 @@ import {
   saveRsvp,
   ActivityEntry,
 } from "@/lib/db";
-import {
-  DEFAULT_MENU,
-  menuById,
-  MENU_COURSE_DISHES,
-  parseMeals,
-} from "@/lib/site";
+import { DEFAULT_MENU, parseMeals } from "@/lib/site";
+import { getMenus, menuById, menuCourseDishes } from "@/lib/menus";
 import { computeLocks } from "@/lib/settings";
 import { diffGuestResponse, diffText, requestContext } from "@/lib/activity";
 
@@ -109,6 +105,8 @@ export async function POST(req: NextRequest) {
   }
 
   const mealRequired = party.invite_type === "full";
+  const menus = getMenus();
+  const courseDishesByMenu = menuCourseDishes(menus);
   const guestMenus = new Map(members.map((g) => [g.id, g.menu]));
   const answers: { guestId: number; attending: boolean; meal: string | null }[] =
     [];
@@ -132,13 +130,13 @@ export async function POST(req: NextRequest) {
         meal = old?.meal ?? null;
       } else {
         const menuId = guestMenus.get(guestId) ?? DEFAULT_MENU;
-        const courseDishes = MENU_COURSE_DISHES.get(menuId);
+        const courseDishes = courseDishesByMenu.get(menuId);
         const picks =
           typeof a.meals === "object" && a.meals !== null && !Array.isArray(a.meals)
             ? (a.meals as Record<string, unknown>)
             : {};
         const canonical: Record<string, string> = {};
-        for (const course of menuById(menuId).courses) {
+        for (const course of menuById(menus, menuId).courses) {
           const pick = picks[course.id];
           if (
             typeof pick !== "string" ||

@@ -1,6 +1,7 @@
 import { partyOf, responsesForParty, commentForParty } from "@/lib/db";
 import { parseMeals } from "@/lib/site";
 import { computeLocks } from "@/lib/settings";
+import { getMenus } from "@/lib/menus";
 
 /** Shape of a party as sent to the RSVP flow on the client. */
 export function buildPartyPayload(guestId: number) {
@@ -33,6 +34,8 @@ export function buildPartyPayload(guestId: number) {
     }),
     previousComment: comment?.comment ?? null,
     previousSongRequest: comment?.song_request || null,
+    // Menus are admin-editable, so the client renders whatever is current
+    menus: getMenus(),
     locks: {
       mealsLocked: locks.mealsLocked,
       rsvpLocked: locks.rsvpLocked,

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { ActivityContext, ActivityEntry } from "@/lib/db";
-import { COURSE_ORDER, DISH_LABELS, parseMeals } from "@/lib/site";
+import { parseMeals } from "@/lib/site";
+import { courseOrder, dishLabels, getMenus } from "@/lib/menus";
 
 /**
  * Request metadata stored with each activity entry so the couple can
@@ -35,8 +36,11 @@ export function statusLabel(attending: number | boolean | null): string {
   return attending === 1 || attending === true ? "Attending" : "Declined";
 }
 
-function dishLabel(dishId: string | undefined): string {
-  return dishId ? (DISH_LABELS.get(dishId) ?? dishId) : "—";
+function dishLabel(
+  labels: Map<string, string>,
+  dishId: string | undefined
+): string {
+  return dishId ? (labels.get(dishId) ?? dishId) : "—";
 }
 
 /**
@@ -68,17 +72,19 @@ export function diffGuestResponse(input: {
       newValue: newStatus,
     });
   }
+  const menus = getMenus();
+  const labels = dishLabels(menus);
   const oldPicks = parseMeals(input.oldMeal);
   const newPicks = parseMeals(input.newMeal);
-  for (const course of COURSE_ORDER) {
+  for (const course of courseOrder(menus)) {
     const before = oldPicks[course.id];
     const after = newPicks[course.id];
     if (before !== after) {
       entries.push({
         ...base,
         field: course.label,
-        oldValue: dishLabel(before),
-        newValue: dishLabel(after),
+        oldValue: dishLabel(labels, before),
+        newValue: dishLabel(labels, after),
       });
     }
   }

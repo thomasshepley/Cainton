@@ -329,59 +329,12 @@ export const site = {
 
 export type Menu = MenuDef;
 
-/** Lookup helpers used by the app and API */
-export const MENU_IDS = new Set<string>(site.menus.map((m) => m.id));
-export const DEFAULT_MENU = "adult";
-
-export function menuById(id: string): Menu {
-  return site.menus.find((m) => m.id === id) ?? site.menus[0];
-}
-
 /**
- * Storable dish ids for an option: the variant ids when the dish has
- * variants (the plain option id is then NOT a valid stored value —
- * a variant must be chosen), otherwise the option id itself.
+ * Menu id every guest starts on. The menus themselves are editable from
+ * the admin Settings page — server code reads them via lib/menus.ts,
+ * which falls back to the definitions above when nothing is saved.
  */
-export function storableIds(o: DishOption): string[] {
-  return o.variants?.length ? o.variants.map((v) => v.id) : [o.id];
-}
-
-/** dish id -> label, across every menu, course and variant */
-export const DISH_LABELS = new Map<string, string>();
-for (const menu of site.menus) {
-  for (const course of menu.courses) {
-    for (const o of course.options) {
-      DISH_LABELS.set(o.id, o.label);
-      for (const v of o.variants ?? []) {
-        DISH_LABELS.set(v.id, `${o.label} — ${v.label.toLowerCase()}`);
-      }
-    }
-  }
-}
-
-/** menu id -> course id -> set of storable dish ids (for validation) */
-export const MENU_COURSE_DISHES = new Map<string, Map<string, Set<string>>>(
-  site.menus.map((menu) => [
-    menu.id,
-    new Map(
-      menu.courses.map((course) => [
-        course.id,
-        new Set<string>(course.options.flatMap(storableIds)),
-      ])
-    ),
-  ])
-);
-
-/** Every course id in display order (union across menus) */
-export const COURSE_ORDER: { id: string; label: string }[] = (() => {
-  const seen = new Map<string, string>();
-  for (const menu of site.menus) {
-    for (const course of menu.courses) {
-      if (!seen.has(course.id)) seen.set(course.id, course.label);
-    }
-  }
-  return [...seen.entries()].map(([id, label]) => ({ id, label }));
-})();
+export const DEFAULT_MENU = "adult";
 
 /**
  * A guest's meal choices are stored as a JSON object mapping course id
