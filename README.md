@@ -228,13 +228,16 @@ behavior. Everything is enforced server-side, not just hidden in the UI:
   hidden parties (e.g. the couple's own) can't be found, viewed, or edited
   from the guest site at all.
 - **Change the admin password** — stored hashed in the database and takes
-  precedence over `ADMIN_PASSWORD`. Locked out? Reset from your PC:
+  precedence over `ADMIN_PASSWORD`. Locked out? SSH into the server and
+  run:
 
   ```bash
+  ssh ubuntu@<your-server-ip>
+  cd Cainton
   docker compose exec wedding-rsvp node scripts/reset-admin-password.js
   ```
 
-  The password then reverts to `ADMIN_PASSWORD` from your `.env`.
+  The password then reverts to `ADMIN_PASSWORD` from the server's `.env`.
 - **Dark / light mode** — toggle in the dashboard and settings headers,
   remembered per device.
 

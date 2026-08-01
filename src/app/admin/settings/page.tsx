@@ -402,13 +402,21 @@ export default function AdminSettingsPage() {
             Change password
           </button>
         </form>
-        <p className="mt-3 border-t border-ink-soft/10 pt-3 text-xs leading-relaxed text-ink-soft">
-          Locked out? Reset from your PC&apos;s command line — the password
-          reverts to the <code>ADMIN_PASSWORD</code> in your <code>.env</code>:
-          <code className="mt-1 block rounded bg-cream-dark px-2 py-1 text-[0.7rem] break-all">
-            docker compose exec wedding-rsvp node scripts/reset-admin-password.js
-          </code>
-        </p>
+        <div className="mt-4 border-t border-ink-soft/10 pt-3">
+          <p className="text-xs font-medium">
+            Admin only — reset the password over SSH
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+            Locked out? Connect to the server and run these three commands.
+            The password then reverts to <code>ADMIN_PASSWORD</code> in the
+            server&apos;s <code>.env</code> file.
+          </p>
+          <pre className="mt-2 overflow-x-auto rounded-lg bg-cream-dark px-3 py-2 text-[0.7rem] leading-relaxed">
+            {`ssh ubuntu@<your-server-ip>
+cd Cainton
+docker compose exec wedding-rsvp node scripts/reset-admin-password.js`}
+          </pre>
+        </div>
       </section>
     </main>
   );
