@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { site, MenuDef, CourseDef, DishOption } from "@/lib/site";
+import { site, MenuDef, DishOption, DIETARY_TAGS } from "@/lib/site";
 
 interface SiteSettings {
   lockMeals: boolean;
@@ -108,7 +108,9 @@ export default function AdminSettingsPage() {
   const [menus, setMenus] = useState<MenuDef[]>([]);
   const [menusDirty, setMenusDirty] = useState(false);
   const [menusOpen, setMenusOpen] = useState(false);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  const activeMenu = menus.find((m) => m.id === activeMenuId) ?? menus[0];
 
   // Password form
   const [pwCurrent, setPwCurrent] = useState("");
@@ -193,27 +195,6 @@ export default function AdminSettingsPage() {
     setMenusDirty(true);
   }
 
-  const updateMenu = (menuId: string, patch: Partial<MenuDef>) =>
-    editMenus((d) => d.map((m) => (m.id === menuId ? { ...m, ...patch } : m)));
-
-  const updateCourse = (
-    menuId: string,
-    courseId: string,
-    patch: Partial<CourseDef>
-  ) =>
-    editMenus((d) =>
-      d.map((m) =>
-        m.id === menuId
-          ? {
-              ...m,
-              courses: m.courses.map((c) =>
-                c.id === courseId ? { ...c, ...patch } : c
-              ),
-            }
-          : m
-      )
-    );
-
   const updateDish = (
     menuId: string,
     courseId: string,
@@ -278,58 +259,21 @@ export default function AdminSettingsPage() {
       )
     );
 
-  const addCourse = (menuId: string) =>
-    editMenus((d) =>
-      d.map((m) =>
-        m.id === menuId
-          ? {
-              ...m,
-              courses: [
-                ...m.courses,
-                {
-                  id: newId("course", "course"),
-                  label: "",
-                  options: [
-                    { id: newId("dish", "new dish"), label: "", description: "" },
-                  ],
-                },
-              ],
-            }
-          : m
-      )
-    );
+  const toggleTag = (
+    menuId: string,
+    courseId: string,
+    dish: DishOption,
+    tagId: string
+  ) => {
+    const has = dish.tags?.includes(tagId);
+    updateDish(menuId, courseId, dish.id, {
+      tags: has
+        ? (dish.tags ?? []).filter((t) => t !== tagId)
+        : [...(dish.tags ?? []), tagId],
+    });
+  };
 
-  const removeCourse = (menuId: string, courseId: string) =>
-    editMenus((d) =>
-      d.map((m) =>
-        m.id === menuId
-          ? { ...m, courses: m.courses.filter((c) => c.id !== courseId) }
-          : m
-      )
-    );
-
-  const addMenu = () =>
-    editMenus((d) => [
-      ...d,
-      {
-        id: newId("menu", "menu"),
-        label: "",
-        courses: [
-          {
-            id: newId("course", "starter"),
-            label: "Starter",
-            options: [
-              { id: newId("dish", "new dish"), label: "", description: "" },
-            ],
-          },
-        ],
-      },
-    ]);
-
-  const removeMenu = (menuId: string) =>
-    editMenus((d) => d.filter((m) => m.id !== menuId));
-
-  /** Toggle a dish between plain and having with/without-cheese style options */
+  /** Toggle a dish between plain and having with/without-style choices */
   const toggleVariants = (menuId: string, courseId: string, dish: DishOption) =>
     updateDish(menuId, courseId, dish.id, {
       variants: dish.variants?.length
@@ -593,233 +537,196 @@ export default function AdminSettingsPage() {
           </span>
           <span className="flex-1">
             <span className="block text-[0.65rem] tracking-[0.25em] uppercase text-ink-soft">
-              Menus
+              Menu items
             </span>
             <span className="mt-0.5 block text-xs text-ink-soft">
-              {menus.length} menus · edit courses and dishes
+              Edit the dishes guests choose from
             </span>
           </span>
-          {menusDirty && <span className="text-[0.65rem] text-gold">unsaved</span>}
+          {menusDirty && (
+            <span className="rounded-full border border-gold/50 bg-gold-light px-2 py-0.5 text-[0.6rem] tracking-[0.1em] uppercase text-gold">
+              Unsaved
+            </span>
+          )}
         </button>
 
         {menusOpen && (
-          <div className="border-t border-ink-soft/10 px-4 pb-4">
-            <p className="py-3 text-xs leading-relaxed text-ink-soft">
-              Renaming a dish is always safe — guests who already chose it
-              keep their choice. Deleting a dish leaves anyone who picked it
-              without that course, so check the dashboard afterwards.
-            </p>
+          <div className="border-t border-ink-soft/10">
+            {/* Menu picker */}
+            <div className="flex flex-wrap gap-1.5 border-b border-ink-soft/10 px-4 py-3">
+              {menus.map((menu) => (
+                <button
+                  key={menu.id}
+                  onClick={() => setActiveMenuId(menu.id)}
+                  className={`rounded-full border px-3.5 py-1.5 text-xs transition-colors ${
+                    activeMenu?.id === menu.id
+                      ? "border-sage-dark bg-sage-dark text-cream"
+                      : "border-ink-soft/25 text-ink-soft hover:border-sage-dark hover:text-sage-dark"
+                  }`}
+                >
+                  {menu.label}
+                </button>
+              ))}
+            </div>
 
-            <div className="space-y-2">
-              {menus.map((menu) => {
-                const open = openMenuId === menu.id;
-                return (
-                  <div
-                    key={menu.id}
-                    className="overflow-hidden rounded-lg border border-ink-soft/20 bg-white/70"
-                  >
-                    <div className="flex items-center gap-2 px-3 py-2">
-                      <button
-                        onClick={() => setOpenMenuId(open ? null : menu.id)}
-                        className={`text-xs text-ink-soft transition-transform duration-200 ${
-                          open ? "rotate-90" : ""
-                        }`}
-                        aria-label="Expand menu"
-                      >
-                        ▸
-                      </button>
-                      <input
-                        value={menu.label}
-                        onChange={(e) =>
-                          updateMenu(menu.id, { label: e.target.value })
-                        }
-                        placeholder="Menu name"
-                        className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-sm font-medium outline-none hover:border-ink-soft/20 focus:border-gold focus:bg-white"
-                      />
-                      <span className="text-[0.65rem] text-ink-soft/60">
-                        {menu.courses.length} courses
-                      </span>
-                      <button
-                        onClick={() => {
-                          if (
-                            confirm(
-                              `Delete the "${menu.label || "untitled"}" menu? Guests assigned to it will need moving to another menu.`
-                            )
-                          )
-                            removeMenu(menu.id);
-                        }}
-                        className="text-xs text-red-800/50 hover:text-red-800"
-                        title="Delete menu"
-                      >
-                        ✕
-                      </button>
-                    </div>
-
-                    {open && (
-                      <div className="space-y-3 border-t border-ink-soft/10 px-3 py-3">
-                        {menu.courses.map((course) => (
-                          <div
-                            key={course.id}
-                            className="rounded-lg border border-ink-soft/15 p-2.5"
-                          >
-                            <div className="flex items-center gap-2">
+            {activeMenu && (
+              <div className="space-y-6 px-4 py-4">
+                {activeMenu.courses.map((course) => (
+                  <div key={course.id}>
+                    <p className="text-[0.65rem] tracking-[0.3em] uppercase text-gold">
+                      {course.label}
+                    </p>
+                    <div className="mt-2 space-y-2">
+                      {course.options.map((dish) => (
+                        <div
+                          key={dish.id}
+                          className="rounded-lg border border-ink-soft/15 bg-white/70 p-3"
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className="min-w-0 flex-1 space-y-1.5">
                               <input
-                                value={course.label}
+                                value={dish.label}
                                 onChange={(e) =>
-                                  updateCourse(menu.id, course.id, {
+                                  updateDish(activeMenu.id, course.id, dish.id, {
                                     label: e.target.value,
                                   })
                                 }
-                                placeholder="Course name (e.g. Starter)"
-                                className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-[0.7rem] tracking-[0.15em] uppercase outline-none hover:border-ink-soft/20 focus:border-gold focus:bg-white"
+                                placeholder="Dish name"
+                                className={`${INPUT_CLASS} font-medium`}
                               />
-                              <button
-                                onClick={() => {
-                                  if (confirm(`Delete the "${course.label}" course?`))
-                                    removeCourse(menu.id, course.id);
-                                }}
-                                className="text-xs text-red-800/50 hover:text-red-800"
-                                title="Delete course"
-                              >
-                                ✕
-                              </button>
+                              <input
+                                value={dish.description ?? ""}
+                                onChange={(e) =>
+                                  updateDish(activeMenu.id, course.id, dish.id, {
+                                    description: e.target.value,
+                                  })
+                                }
+                                placeholder="Description (optional)"
+                                className={`${INPUT_CLASS} text-xs`}
+                              />
                             </div>
-
-                            <div className="mt-2 space-y-2">
-                              {course.options.map((dish) => (
-                                <div
-                                  key={dish.id}
-                                  className="rounded-lg bg-cream-dark/40 p-2"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      value={dish.label}
-                                      onChange={(e) =>
-                                        updateDish(menu.id, course.id, dish.id, {
-                                          label: e.target.value,
-                                        })
-                                      }
-                                      placeholder="Dish name"
-                                      className={INPUT_CLASS}
-                                    />
-                                    <button
-                                      onClick={() =>
-                                        removeDish(menu.id, course.id, dish.id)
-                                      }
-                                      className="text-xs text-red-800/50 hover:text-red-800"
-                                      title="Delete dish"
-                                    >
-                                      ✕
-                                    </button>
-                                  </div>
-                                  <input
-                                    value={dish.description ?? ""}
-                                    onChange={(e) =>
-                                      updateDish(menu.id, course.id, dish.id, {
-                                        description: e.target.value,
-                                      })
-                                    }
-                                    placeholder="Description (optional)"
-                                    className={`${INPUT_CLASS} mt-1.5 text-xs`}
-                                  />
-                                  {dish.variants?.length ? (
-                                    <div className="mt-1.5 space-y-1.5 border-l-2 border-sage-dark/30 pl-2.5">
-                                      <p className="text-[0.6rem] tracking-[0.15em] uppercase text-ink-soft">
-                                        Guest picks one
-                                      </p>
-                                      {dish.variants.map((v, vi) => (
-                                        <input
-                                          key={v.id}
-                                          value={v.label}
-                                          onChange={(e) => {
-                                            const next = [...dish.variants!];
-                                            next[vi] = {
-                                              ...v,
-                                              label: e.target.value,
-                                            };
-                                            updateDish(
-                                              menu.id,
-                                              course.id,
-                                              dish.id,
-                                              { variants: next }
-                                            );
-                                          }}
-                                          placeholder={`Option ${vi + 1} (e.g. With cheese)`}
-                                          className={`${INPUT_CLASS} text-xs`}
-                                        />
-                                      ))}
-                                      <div className="flex gap-2">
-                                        <button
-                                          onClick={() =>
-                                            updateDish(menu.id, course.id, dish.id, {
-                                              variants: [
-                                                ...dish.variants!,
-                                                {
-                                                  id: newId("opt", "option"),
-                                                  label: "",
-                                                },
-                                              ],
-                                            })
-                                          }
-                                          className={SMALL_BTN}
-                                        >
-                                          + Option
-                                        </button>
-                                        <button
-                                          onClick={() =>
-                                            toggleVariants(menu.id, course.id, dish)
-                                          }
-                                          className={SMALL_BTN}
-                                        >
-                                          Remove options
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      onClick={() =>
-                                        toggleVariants(menu.id, course.id, dish)
-                                      }
-                                      className={`${SMALL_BTN} mt-1.5`}
-                                      title="For dishes like a burger with or without cheese"
-                                    >
-                                      + Add choices (e.g. with / without cheese)
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
-                              <button
-                                onClick={() => addDish(menu.id, course.id)}
-                                className={SMALL_BTN}
-                              >
-                                + Dish
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => {
+                                if (
+                                  confirm(
+                                    `Remove "${dish.label || "this dish"}"? Anyone who already chose it will be left without this course.`
+                                  )
+                                )
+                                  removeDish(activeMenu.id, course.id, dish.id);
+                              }}
+                              title="Remove dish"
+                              className="mt-1 text-xs text-red-800/50 hover:text-red-800"
+                            >
+                              ✕
+                            </button>
                           </div>
-                        ))}
-                        <button
-                          onClick={() => addCourse(menu.id)}
-                          className={SMALL_BTN}
-                        >
-                          + Course
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <button onClick={addMenu} className={SMALL_BTN}>
-                + Menu
-              </button>
-              <span className="flex-1" />
+                          {/* Dietary symbols */}
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <span className="text-[0.6rem] tracking-[0.15em] uppercase text-ink-soft/70">
+                              Suitable for
+                            </span>
+                            {DIETARY_TAGS.map((tag) => {
+                              const on = dish.tags?.includes(tag.id) ?? false;
+                              return (
+                                <button
+                                  key={tag.id}
+                                  onClick={() =>
+                                    toggleTag(activeMenu.id, course.id, dish, tag.id)
+                                  }
+                                  title={tag.label}
+                                  className={`rounded-full border px-2.5 py-0.5 text-[0.65rem] transition-colors ${
+                                    on
+                                      ? "border-sage-dark bg-sage-dark text-cream"
+                                      : "border-ink-soft/25 text-ink-soft hover:border-sage-dark hover:text-sage-dark"
+                                  }`}
+                                >
+                                  {tag.symbol} {tag.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* With / without style choices */}
+                          {dish.variants?.length ? (
+                            <div className="mt-2 space-y-1.5 rounded-lg bg-cream-dark/40 p-2">
+                              <p className="text-[0.6rem] tracking-[0.15em] uppercase text-ink-soft/70">
+                                Guest picks one
+                              </p>
+                              {dish.variants.map((v, vi) => (
+                                <input
+                                  key={v.id}
+                                  value={v.label}
+                                  onChange={(e) => {
+                                    const next = [...dish.variants!];
+                                    next[vi] = { ...v, label: e.target.value };
+                                    updateDish(activeMenu.id, course.id, dish.id, {
+                                      variants: next,
+                                    });
+                                  }}
+                                  placeholder={`Choice ${vi + 1} (e.g. With cheese)`}
+                                  className={`${INPUT_CLASS} text-xs`}
+                                />
+                              ))}
+                              <div className="flex gap-2 pt-0.5">
+                                <button
+                                  onClick={() =>
+                                    updateDish(activeMenu.id, course.id, dish.id, {
+                                      variants: [
+                                        ...dish.variants!,
+                                        { id: newId("opt", "option"), label: "" },
+                                      ],
+                                    })
+                                  }
+                                  className={SMALL_BTN}
+                                >
+                                  + Choice
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    toggleVariants(activeMenu.id, course.id, dish)
+                                  }
+                                  className={SMALL_BTN}
+                                >
+                                  Remove choices
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() =>
+                                toggleVariants(activeMenu.id, course.id, dish)
+                              }
+                              className={`${SMALL_BTN} mt-2`}
+                              title="For dishes offered with or without something, e.g. cheese"
+                            >
+                              + Add a with / without choice
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => addDish(activeMenu.id, course.id)}
+                        className={SMALL_BTN}
+                      >
+                        + Add dish to {course.label.toLowerCase()}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 border-t border-ink-soft/10 px-4 py-3">
+              <p className="flex-1 text-[0.65rem] leading-relaxed text-ink-soft">
+                Renaming a dish is safe — guests who chose it keep their
+                choice.
+              </p>
               <button
                 onClick={() => {
                   if (
                     confirm(
-                      "Discard your menu edits and go back to the built-in menus?"
+                      "Discard all menu edits and restore the original dishes?"
                     )
                   )
                     menuAction({ action: "resetMenus" });
@@ -827,7 +734,7 @@ export default function AdminSettingsPage() {
                 disabled={busy}
                 className="rounded-lg border border-ink-soft/30 px-4 py-2 text-xs tracking-[0.15em] uppercase text-ink-soft hover:border-ink hover:text-ink disabled:opacity-40"
               >
-                Reset to defaults
+                Reset
               </button>
               <button
                 onClick={() => menuAction({ action: "saveMenus", menus })}

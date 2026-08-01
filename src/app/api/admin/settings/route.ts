@@ -4,7 +4,7 @@ import { checkPassword, hashPassword, isAdmin } from "@/lib/adminAuth";
 import { readSettings, SiteSettings } from "@/lib/settings";
 import { requestContext } from "@/lib/activity";
 import { DEFAULT_MENUS, getMenus } from "@/lib/menus";
-import { MenuDef } from "@/lib/site";
+import { MenuDef, TAG_IDS } from "@/lib/site";
 
 /** GET current settings and menus (admin only) */
 export async function GET(req: NextRequest) {
@@ -72,6 +72,9 @@ function normalizeMenus(value: MenuDef[]): MenuDef[] {
         id: o.id,
         label: o.label.trim(),
         description: (o.description ?? "").trim(),
+        ...(o.tags?.length
+          ? { tags: o.tags.filter((t) => TAG_IDS.has(t)) }
+          : {}),
         ...(o.variants?.length
           ? {
               variants: o.variants.map((v) => ({
@@ -148,11 +151,32 @@ export async function POST(req: NextRequest) {
   }
 
   if (body.action === "saveMenus") {
-    const problem = validateMenus(body.menus);
+    if (!Array.isArray(body.menus)) {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
+    // Menu and course structure is fixed — only the dishes within each
+    // existing course can be changed, so rebuild from the current shape
+    const incoming = body.menus as MenuDef[];
+    const merged: MenuDef[] = getMenus().map((menu) => {
+      const inc = incoming.find((m) => m.id === menu.id);
+      return {
+        ...menu,
+        courses: menu.courses.map((course) => {
+          const incCourse = inc?.courses.find((c) => c.id === course.id);
+          return {
+            ...course,
+            options: Array.isArray(incCourse?.options)
+              ? incCourse.options
+              : course.options,
+          };
+        }),
+      };
+    });
+    const problem = validateMenus(merged);
     if (problem) {
       return NextResponse.json({ error: problem }, { status: 400 });
     }
-    const menus = normalizeMenus(body.menus as MenuDef[]);
+    const menus = normalizeMenus(merged);
     setSetting("menus", JSON.stringify(menus));
     logActivity(
       [
