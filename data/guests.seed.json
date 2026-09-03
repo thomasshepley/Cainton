@@ -194,16 +194,16 @@
     "invite": "evening"
   },
   {
-    "label": "Grandma Lynn",
+    "label": "Grandma Lynn Walker",
     "guests": [
-      "Grandma Lynn"
+      "Grandma Lynn Walker"
     ],
     "invite": "evening"
   },
   {
-    "label": "Gabby",
+    "label": "Gabby Booth",
     "guests": [
-      "Gabby"
+      "Gabby Booth"
     ],
     "invite": "evening"
   },
@@ -222,10 +222,10 @@
     "invite": "evening"
   },
   {
-    "label": "Shiv & Sam",
+    "label": "Shiv & Sam Pancholi",
     "guests": [
-      "Shiv",
-      "Sam"
+      "Shiv Pancholi",
+      "Sam Pancholi"
     ],
     "invite": "evening"
   },
@@ -258,34 +258,34 @@
     "invite": "evening"
   },
   {
-    "label": "Jamie Garde & Emma",
+    "label": "Jamie Garde & Emma Rice",
     "guests": [
       "Jamie Garde",
-      "Emma (with Jamie Garde)"
+      "Emma Rice"
     ],
     "invite": "evening"
   },
   {
-    "label": "Connor Yates & Emma",
+    "label": "Connor Yates & Emma Wharton",
     "guests": [
       "Connor Yates",
-      "Emma (with Connor Yates)"
+      "Emma Wharton"
     ],
     "invite": "evening"
   },
   {
-    "label": "Kelly & Noah",
+    "label": "Kelly & Noah Blizard",
     "guests": [
-      "Kelly (with Noah)",
-      "Noah"
+      "Kelly Blizard",
+      "Noah Blizard"
     ],
     "invite": "evening"
   },
   {
-    "label": "Shannon & Bryce",
+    "label": "Shannon & Bryce Llewellyn",
     "guests": [
-      "Shannon",
-      "Bryce"
+      "Shannon Llewellyn",
+      "Bryce Llewellyn"
     ],
     "invite": "evening"
   },
@@ -335,26 +335,26 @@
     "invite": "evening"
   },
   {
-    "label": "Vicky & Martin",
+    "label": "Vicky & Martin Lawton",
     "guests": [
-      "Vicky (with Martin)",
-      "Martin"
+      "Vicky Lawton",
+      "Martin Lawton"
     ],
     "invite": "evening"
   },
   {
-    "label": "Ashleigh & Ryan",
+    "label": "Ashleigh Booth & Ryan Sandiford",
     "guests": [
-      "Ashleigh",
-      "Ryan"
+      "Ashleigh Booth",
+      "Ryan Sandiford"
     ],
     "invite": "evening"
   },
   {
-    "label": "Matt & Stacy",
+    "label": "Matt & Stacy Gandy",
     "guests": [
-      "Matt (with Stacy)",
-      "Stacy (with Matt)"
+      "Matt Gandy",
+      "Stacy Gandy"
     ],
     "invite": "evening"
   },
@@ -389,10 +389,10 @@
     "invite": "evening"
   },
   {
-    "label": "Linda & John",
+    "label": "Linda & John Riding",
     "guests": [
-      "Linda (with John)",
-      "John"
+      "Linda Riding",
+      "John Riding"
     ],
     "invite": "evening"
   },
@@ -426,10 +426,10 @@
     "invite": "evening"
   },
   {
-    "label": "Kyle & Jess",
+    "label": "Kyle Evans & Jessica Pugh-Hanson",
     "guests": [
-      "Kyle (with Jess)",
-      "Jess (with Kyle)"
+      "Kyle Evans",
+      "Jessica Pugh-Hanson"
     ],
     "invite": "evening"
   }

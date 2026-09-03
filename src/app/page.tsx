@@ -1,8 +1,17 @@
 import Link from "next/link";
 import { site } from "@/lib/site";
+import { readSettings, formatDeadlineDisplay } from "@/lib/settings";
+
+// The RSVP deadline is admin-configurable at runtime, so this page can't
+// be statically prerendered — it needs to read the setting on every request.
+export const dynamic = "force-dynamic";
 
 /** Splash page: names, date, venue, and the door into the RSVP flow. */
 export default function SplashPage() {
+  const deadlineDisplay =
+    formatDeadlineDisplay(readSettings().rsvpDeadline) ??
+    site.rsvpDeadlineDisplay;
+
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-16 text-center">
       {/* soft background glow */}
@@ -49,7 +58,7 @@ export default function SplashPage() {
             RSVP
           </Link>
           <p className="mt-6 text-xs tracking-[0.15em] uppercase text-ink-soft">
-            Kindly respond by {site.rsvpDeadlineDisplay}
+            Kindly respond by {deadlineDisplay}
           </p>
         </div>
       </div>
