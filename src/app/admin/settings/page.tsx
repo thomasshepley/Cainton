@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { site, MenuDef, DishOption, DIETARY_TAGS } from "@/lib/site";
+import { PasswordInput } from "@/components/PasswordInput";
 
 interface SiteSettings {
   lockMeals: boolean;
@@ -754,29 +755,26 @@ export default function AdminSettingsPage() {
           Security
         </h2>
         <form onSubmit={changePassword} className="mt-3 grid gap-3 sm:max-w-sm">
-          <input
-            type="password"
+          <PasswordInput
             value={pwCurrent}
-            onChange={(e) => setPwCurrent(e.target.value)}
+            onChange={setPwCurrent}
             placeholder="Current password"
             autoComplete="current-password"
-            className="rounded-lg border border-ink-soft/25 bg-white px-3 py-2 text-sm outline-none focus:border-gold"
+            inputClassName="w-full rounded-lg border border-ink-soft/25 bg-white px-3 py-2 text-sm outline-none focus:border-gold"
           />
-          <input
-            type="password"
+          <PasswordInput
             value={pwNext}
-            onChange={(e) => setPwNext(e.target.value)}
+            onChange={setPwNext}
             placeholder="New password (min 8 characters)"
             autoComplete="new-password"
-            className="rounded-lg border border-ink-soft/25 bg-white px-3 py-2 text-sm outline-none focus:border-gold"
+            inputClassName="w-full rounded-lg border border-ink-soft/25 bg-white px-3 py-2 text-sm outline-none focus:border-gold"
           />
-          <input
-            type="password"
+          <PasswordInput
             value={pwConfirm}
-            onChange={(e) => setPwConfirm(e.target.value)}
+            onChange={setPwConfirm}
             placeholder="Confirm new password"
             autoComplete="new-password"
-            className="rounded-lg border border-ink-soft/25 bg-white px-3 py-2 text-sm outline-none focus:border-gold"
+            inputClassName="w-full rounded-lg border border-ink-soft/25 bg-white px-3 py-2 text-sm outline-none focus:border-gold"
           />
           <button
             type="submit"
