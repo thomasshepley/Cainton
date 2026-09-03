@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { site, parseMeals, MenuDef } from "@/lib/site";
+import { PasswordInput } from "@/components/PasswordInput";
 
 interface AdminRow {
   guest_id: number;
@@ -377,13 +378,14 @@ export default function AdminPage() {
           <p className="mt-2 text-sm text-ink-soft">
             {site.coupleNames} — Wedding Dashboard
           </p>
-          <input
-            type="password"
+          <PasswordInput
             value={key}
-            onChange={(e) => setKey(e.target.value)}
+            onChange={setKey}
             placeholder="Admin password"
             autoFocus
-            className="mt-8 w-full border-b border-ink-soft/40 bg-transparent px-2 py-3 text-center outline-none focus:border-gold"
+            center
+            wrapperClassName="mt-8 w-full"
+            inputClassName="w-full border-b border-ink-soft/40 bg-transparent px-2 py-3 text-center outline-none focus:border-gold"
           />
           {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
           <button
