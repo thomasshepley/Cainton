@@ -80,3 +80,21 @@ export function computeLocks(now = new Date()): Locks {
     closedMessage: s.closedMessage,
   };
 }
+
+/** ISO timestamp -> "May 29th, 2027", or null when unset/invalid */
+export function formatDeadlineDisplay(iso: string): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const day = d.getDate();
+  const suffix =
+    day % 10 === 1 && day !== 11
+      ? "st"
+      : day % 10 === 2 && day !== 12
+        ? "nd"
+        : day % 10 === 3 && day !== 13
+          ? "rd"
+          : "th";
+  const month = d.toLocaleDateString("en-US", { month: "long" });
+  return `${month} ${day}${suffix}, ${d.getFullYear()}`;
+}
